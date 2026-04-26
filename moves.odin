@@ -3,8 +3,9 @@ package chess
 get_pawn_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
 	moves: [dynamic]u64
 	x, y := get_x_y_from_square(square)
+	color := get_piece_color(piece)
 
-	if piece == Piece.White_Pawn {
+	if color == Piece_Color.White {
 		move := get_bitboard_square(x, 3)
 		if y == 1 && !piece_exists(board, move) do append(&moves, move)
 
@@ -33,16 +34,103 @@ get_pawn_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 	return moves
 }
 
+add_sliding_move :: proc(
+	board: ^Board,
+	moves: ^[dynamic]u64,
+	x, y: int,
+	color: Piece_Color,
+) -> bool {
+	target := get_bitboard_square(x, y)
+
+	if !piece_exists(board, target) {
+		append(moves, target)
+		return true
+	} else {
+		target_piece := get_piece(board, target)
+		if get_piece_color(target_piece) != color {
+			append(moves, target)
+		}
+		return false
+	}
+}
+
+
+get_rook_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
+	moves: [dynamic]u64
+	x, y := get_x_y_from_square(square)
+	color := get_piece_color(piece)
+
+	for i := x + 1; i < 8; i += 1 {
+		if !add_sliding_move(board, &moves, i, y, color) do break
+	}
+
+	for i := x - 1; i >= 0; i -= 1 {
+		if !add_sliding_move(board, &moves, i, y, color) do break
+	}
+
+	for i := y + 1; i < 8; i += 1 {
+		if !add_sliding_move(board, &moves, x, i, color) do break
+	}
+
+	for i := y - 1; i >= 0; i -= 1 {
+		if !add_sliding_move(board, &moves, x, i, color) do break
+	}
+
+	return moves
+}
+
+get_bishop_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
+	moves: [dynamic]u64
+	x, y := get_x_y_from_square(square)
+	color := get_piece_color(piece)
+
+	dirs := [4][2]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}}
+
+	for dir in dirs {
+		for i := 1; i < 8; i += 1 {
+			new_x := x + (dir.x * i)
+			new_y := y + (dir.y * i)
+
+			if new_x < 0 || new_x > 7 || new_y < 0 || new_y > 7 do break
+			if !add_sliding_move(board, &moves, new_x, new_y, color) do break
+		}
+	}
+
+	return moves
+}
+
+get_queen_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
+	moves := get_rook_moves(board, square, piece)
+	append(&moves, ..get_bishop_moves(board, square, piece)[:])
+	return moves
+}
+
 get_moves :: proc(board: ^Board, square: u64) -> [dynamic]u64 {
 	piece := get_piece(board, square)
 
 	#partial switch piece {
 	case Piece.White_Pawn, Piece.Black_Pawn:
 		return get_pawn_moves(board, square, piece)
+	case Piece.White_Rook, Piece.Black_Rook:
+		return get_rook_moves(board, square, piece)
+	case Piece.White_Bishop, Piece.Black_Bishop:
+		return get_bishop_moves(board, square, piece)
+	case Piece.White_Queen, Piece.Black_Queen:
+		return get_queen_moves(board, square, piece)
 	case:
 		return make([dynamic]u64)
 	}
 
 	return make([dynamic]u64)
+}
+
+get_moves_bitboard :: proc(moves: []u64) -> u64 {
+	board: u64 = 0
+
+	for move in moves {
+		board |= move
+	}
+
+	return board
 }
 

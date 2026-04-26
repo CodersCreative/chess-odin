@@ -16,6 +16,35 @@ Piece :: enum {
 	None,
 }
 
+Piece_Color :: enum {
+	Black,
+	White,
+	None,
+}
+
+get_piece_color :: proc(piece: Piece) -> Piece_Color {
+	switch piece {
+	case Piece.White_Pawn,
+	     Piece.White_King,
+	     Piece.White_Queen,
+	     Piece.White_Rook,
+	     Piece.White_Bishop,
+	     Piece.White_Knight:
+		return Piece_Color.White
+	case Piece.Black_Pawn,
+	     Piece.Black_King,
+	     Piece.Black_Queen,
+	     Piece.Black_Rook,
+	     Piece.Black_Bishop,
+	     Piece.Black_Knight:
+		return Piece_Color.Black
+	case Piece.None:
+		return Piece_Color.None
+	}
+
+	return Piece_Color.None
+}
+
 piece_to_str :: proc(piece: Piece) -> string {
 	switch piece {
 	case Piece.White_Pawn:
