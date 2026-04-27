@@ -128,7 +128,7 @@ get_moves_bitboard :: proc(moves: []u64) -> u64 {
 	board: u64 = 0
 
 	for move in moves {
-		board |= move
+		board |= 1 << move
 	}
 
 	return board

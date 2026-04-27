@@ -72,22 +72,20 @@ get_piece :: proc(board: ^Board, square: u64) -> Piece {
 }
 
 piece_exists :: proc(board: ^Board, square: u64) -> bool {
-	return(
-		(board.white_pawns |
-				board.black_pawns |
-				board.white_king |
-				board.black_king |
-				board.white_queens |
-				board.black_queens |
-				board.white_rooks |
-				board.black_rooks |
-				board.white_bishops |
-				board.black_bishops |
-				board.white_knights |
-				board.black_knights) &
-			square !=
-		0 \
-	)
+	combined :=
+		board.white_pawns |
+		board.black_pawns |
+		board.white_king |
+		board.black_king |
+		board.white_queens |
+		board.black_queens |
+		board.white_rooks |
+		board.black_rooks |
+		board.white_bishops |
+		board.black_bishops |
+		board.white_knights |
+		board.black_knights
+	return (combined & (1 << square)) != 0
 }
 
 display_board :: proc(board: ^Board) {
