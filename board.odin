@@ -89,11 +89,26 @@ piece_exists :: proc(board: ^Board, square: u64) -> bool {
 }
 
 display_board :: proc(board: ^Board) {
-	for y in 0 ..< 8 {
-		for x in 0 ..< 8 {
-			fmt.printf("%s ", piece_to_str(get_piece(board, get_bitboard_square(x, y))))
+	fmt.printfln("+----+----+----+----+----+----+----+----+----+")
+
+	for y in 0 ..< 9 {
+		for x in 0 ..< 9 {
+
+			if y == 0 && x == 0 {
+				fmt.print("|    ")
+			} else if y == 0 {
+				fmt.printf("| %r  ", cast(rune)(96 + x))
+			} else if x == 0 {
+				fmt.printf("| %d  ", 9 - y)
+			} else {
+				fmt.printf(
+					"| %s ",
+					piece_to_str(get_piece(board, get_bitboard_square(x - 1, y - 1))),
+				)
+			}
 		}
-		fmt.print("\n")
+		fmt.print("|\n")
+		fmt.printfln("+----+----+----+----+----+----+----+----+----+")
 	}
 }
 

@@ -1,5 +1,10 @@
 package chess
 
+Move :: struct {
+	from: u64,
+	to:   u64,
+}
+
 get_pawn_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
 	moves: [dynamic]u64
 	x, y := get_x_y_from_square(square)
