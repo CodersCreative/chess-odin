@@ -55,6 +55,43 @@ square_occupied :: proc(bitboard: u64, square: u64) -> bool {
 	return (bitboard & (1 << square)) != 0
 }
 
+do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
+	#partial switch piece {
+	case Piece.White_Pawn:
+		board.white_pawns += raw_action
+	case Piece.Black_Pawn:
+		board.black_pawns += raw_action
+	case Piece.White_King:
+		board.white_king += raw_action
+	case Piece.Black_King:
+		board.black_king += raw_action
+	case Piece.White_Queen:
+		board.white_queens += raw_action
+	case Piece.Black_Queen:
+		board.black_queens += raw_action
+	case Piece.White_Rook:
+		board.white_rooks += raw_action
+	case Piece.Black_Rook:
+		board.black_rooks += raw_action
+	case Piece.White_Bishop:
+		board.white_bishops += raw_action
+	case Piece.Black_Bishop:
+		board.black_bishops += raw_action
+	case Piece.White_Knight:
+		board.white_knights += raw_action
+	case Piece.Black_Knight:
+		board.black_knights += raw_action
+	}
+}
+
+perform_move :: proc(board: ^Board, move: Move) {
+	piece := get_piece(board, move.from)
+	target_piece := get_piece(board, move.to)
+	do_action_to_bitboard(board, piece, (1 << move.to) - (1 << move.from))
+
+	if target_piece != Piece.None do do_action_to_bitboard(board, target_piece, -(1 << move.to))
+}
+
 get_piece :: proc(board: ^Board, square: u64) -> Piece {
 	if square_occupied(board.white_pawns, square) do return Piece.White_Pawn
 	else if square_occupied(board.black_pawns, square) do return Piece.Black_Pawn

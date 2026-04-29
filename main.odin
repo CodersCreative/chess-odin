@@ -18,7 +18,7 @@ is_valid_notation :: proc(move: string) -> bool {
 }
 
 get_square_from_notation :: proc(letter: u8, number: u8) -> u64 {
-	return get_bitboard_square(97 - cast(int)letter, 7 - (49 - cast(int)number))
+	return get_bitboard_square(cast(int)letter - 97, 7 - (cast(int)number - 49))
 }
 
 get_move_from_notation :: proc(move: string) -> Move {
@@ -29,21 +29,34 @@ get_move_from_notation :: proc(move: string) -> Move {
 	}
 }
 
-handle_move_notation_input :: proc(buffer: []byte, retrying: bool) -> Move {
-	if retrying do fmt.print("Move is in an incorrect format or not possible, please retry : ")
+handle_move_notation_input :: proc(board: ^Board, buffer: []byte, retrying: string) -> Move {
+	if retrying != "" do fmt.printf("%s, please retry : ", retrying)
 	else do fmt.print("Enter the move to be played (for example : a2-a3) : ")
 
 	os.read(os.stdin, buffer[:])
 	str_move := string(buffer[:])
-	if !is_valid_move(str_move) do return handle_move_notation_input(buffer, true)
+	move, err := process_move(board, str_move)
 
-	move := get_move_from_notation(str_move)
-	// Add move verification logic
+	if err != "" do return handle_move_notation_input(board, buffer, err)
+
 	return move
 }
 
-is_valid_move :: proc(move: string) -> bool {
-	return is_valid_notation(move)
+process_move :: proc(board: ^Board, str_move: string) -> (Move, string) {
+	if !is_valid_notation(str_move) do return Move{}, "Move is in an incorrect format"
+
+	move := get_move_from_notation(str_move)
+	available_targets := get_moves(board, move.from)
+
+	for target in available_targets {
+		display_bitboard(target)
+		if target == move.to {
+			return move, ""
+		}
+	}
+
+	return move, "Move is not possible"
+
 }
 
 main :: proc() {
@@ -53,9 +66,9 @@ main :: proc() {
 	for {
 		fmt.print("\e[2J\e[H")
 		display_board(&board)
-		move := handle_move_notation_input(buffer[:], false)
+		move := handle_move_notation_input(&board, buffer[:], "")
 		fmt.println(move)
+		perform_move(&board, move)
 	}
-
 }
 
