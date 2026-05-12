@@ -92,6 +92,26 @@ perform_move :: proc(board: ^Board, move: Move) {
 	if target_piece != Piece.None do do_action_to_bitboard(board, target_piece, -(1 << move.to))
 }
 
+move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
+	froms := make([dynamic]u64)
+
+	for x in 0 ..< 8 {
+		for y in 0 ..< 8 {
+			square := get_bitboard_square(x, y)
+			piece := get_piece(board, square)
+			if get_piece_color(piece) != by do continue
+
+			moves := get_moves(board, square, piece)
+
+			for target in moves {
+				if target == to do append(&froms, square)
+			}
+		}
+	}
+
+	return froms
+}
+
 get_piece :: proc(board: ^Board, square: u64) -> Piece {
 	if square_occupied(board.white_pawns, square) do return Piece.White_Pawn
 	else if square_occupied(board.black_pawns, square) do return Piece.Black_Pawn

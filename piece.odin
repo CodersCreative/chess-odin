@@ -22,6 +22,19 @@ Piece_Color :: enum {
 	None,
 }
 
+invert_color :: proc(color: Piece_Color) -> Piece_Color {
+	switch color {
+	case Piece_Color.Black:
+		return Piece_Color.White
+	case Piece_Color.White:
+		return Piece_Color.Black
+	case Piece_Color.None:
+		return Piece_Color.None
+	}
+
+	return Piece_Color.None
+}
+
 get_piece_color :: proc(piece: Piece) -> Piece_Color {
 	switch piece {
 	case Piece.White_Pawn,

@@ -29,7 +29,12 @@ get_move_from_notation :: proc(move: string) -> Move {
 	}
 }
 
-handle_move_notation_input :: proc(board: ^Board, buffer: []byte, retrying: string) -> Move {
+handle_move_notation_input :: proc(
+	board: ^Board,
+	buffer: []byte,
+	player: Piece_Color,
+	retrying: string,
+) -> Move {
 	if retrying != "" do fmt.printf("%s, please retry : ", retrying)
 	else do fmt.print("Enter the move to be played (for example : a2-a3) : ")
 
@@ -37,7 +42,9 @@ handle_move_notation_input :: proc(board: ^Board, buffer: []byte, retrying: stri
 	str_move := string(buffer[:])
 	move, err := process_move(board, str_move)
 
-	if err != "" do return handle_move_notation_input(board, buffer, err)
+	if err != "" do return handle_move_notation_input(board, buffer, player, err)
+
+	if get_piece_color(get_piece(board, move.from)) != player do return handle_move_notation_input(board, buffer, player, "Move is not possible because it is not your piece")
 
 	return move
 }
@@ -49,7 +56,6 @@ process_move :: proc(board: ^Board, str_move: string) -> (Move, string) {
 	available_targets := get_moves(board, move.from)
 
 	for target in available_targets {
-		display_bitboard(target)
 		if target == move.to {
 			return move, ""
 		}
@@ -62,13 +68,28 @@ process_move :: proc(board: ^Board, str_move: string) -> (Move, string) {
 main :: proc() {
 	board := DEFAULT_BOARD
 	buffer: [10]byte
+	player := Piece_Color.White
 
 	for {
 		fmt.print("\e[2J\e[H")
 		display_board(&board)
-		move := handle_move_notation_input(&board, buffer[:], "")
-		fmt.println(move)
+		in_check := false
+
+		#partial switch player {
+		case Piece_Color.Black:
+			fmt.println("Player : Black")
+			in_check = len(move_possible(&board, board.black_king, Piece_Color.White)) != 0
+		case Piece_Color.White:
+			fmt.println("Player : White")
+			in_check = len(move_possible(&board, board.white_king, Piece_Color.Black)) != 0
+		}
+
+		if in_check do fmt.println("In Check - Protect your king.\n")
+		else do fmt.println("")
+
+		move := handle_move_notation_input(&board, buffer[:], player, "")
 		perform_move(&board, move)
+		player = invert_color(player)
 	}
 }
 

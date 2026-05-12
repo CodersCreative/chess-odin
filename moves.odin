@@ -139,8 +139,9 @@ get_queen_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u6
 	return moves
 }
 
-get_moves :: proc(board: ^Board, square: u64) -> [dynamic]u64 {
-	piece := get_piece(board, square)
+get_moves :: proc(board: ^Board, square: u64, piece: Piece = Piece.None) -> [dynamic]u64 {
+	piece := piece
+	if piece == Piece.None do piece = get_piece(board, square)
 
 	#partial switch piece {
 	case Piece.White_Pawn, Piece.Black_Pawn:
