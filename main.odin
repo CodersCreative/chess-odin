@@ -73,19 +73,30 @@ main :: proc() {
 	for {
 		fmt.print("\e[2J\e[H")
 		display_board(&board)
-		in_check := false
+		in_check := is_in_check(&board, player)
 
 		#partial switch player {
 		case Piece_Color.Black:
 			fmt.println("Player : Black")
-			in_check = len(move_possible(&board, board.black_king, Piece_Color.White)) != 0
 		case Piece_Color.White:
 			fmt.println("Player : White")
-			in_check = len(move_possible(&board, board.white_king, Piece_Color.Black)) != 0
 		}
 
-		if in_check do fmt.println("In Check - Protect your king.\n")
-		else do fmt.println("")
+		if in_check {
+			winner := check_win(&board)
+
+			switch winner {
+			case Piece_Color.White:
+				fmt.println("White Won!!!")
+				return
+			case Piece_Color.Black:
+				fmt.println("Black Won!!!")
+				return
+			case Piece_Color.None:
+				fmt.println("In Check - Protect your king.\n")
+			}
+
+		} else do fmt.println("")
 
 		move := handle_move_notation_input(&board, buffer[:], player, "")
 		perform_move(&board, move)

@@ -112,6 +112,80 @@ move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
 	return froms
 }
 
+is_in_check :: proc(board: ^Board, player: Piece_Color) -> bool {
+	#partial switch player {
+	case Piece_Color.Black:
+		return len(move_possible(board, board.black_king, Piece_Color.White)) != 0
+	case Piece_Color.White:
+		return len(move_possible(board, board.white_king, Piece_Color.Black)) != 0
+	}
+
+	return false
+}
+
+get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64 {
+	valid_moves: [dynamic]u64
+
+	#partial switch player {
+	case Piece_Color.Black:
+		moves := get_moves(board, board.black_king, Piece.Black_King)
+
+		for move in moves {
+			if len(move_possible(board, move, Piece_Color.White)) != 0 do append(&valid_moves, move)
+		}
+	case Piece_Color.White:
+		moves := get_moves(board, board.white_king, Piece.White_King)
+
+		for move in moves {
+			if len(move_possible(board, move, Piece_Color.Black)) != 0 do append(&valid_moves, move)
+		}
+	}
+
+	return valid_moves
+}
+
+is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
+	if !is_in_check(board, player) do return false
+	return len(get_valid_king_moves(board, player)) == 0
+}
+
+check_win :: proc(board: ^Board) -> Piece_Color {
+	if is_checkmate(board, Piece_Color.Black) do return Piece_Color.White
+	else if is_checkmate(board, Piece_Color.White) do return Piece_Color.Black
+	else do return Piece_Color.None
+}
+
+
+get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]Move {
+	if is_checkmate(board, invert_color(player)) do return make([dynamic]Move)
+
+	moves: [dynamic]Move
+
+	if is_in_check(board, player) {
+		to_positions := get_valid_king_moves(board, player)
+		from := (player == Piece_Color.Black) ? board.black_king : board.white_king
+
+		for to in to_positions do append(&moves, Move{from, to})
+		return moves
+	}
+
+	for x in 0 ..< 8 {
+		for y in 0 ..< 8 {
+			square := get_bitboard_square(x, y)
+			piece := get_piece(board, square)
+			if get_piece_color(piece) != player do continue
+
+			cur_moves := get_moves(board, square, piece)
+
+			for pos in cur_moves {
+				append(&moves, Move{from = square, to = pos})
+			}
+		}
+	}
+
+	return moves
+}
+
 get_piece :: proc(board: ^Board, square: u64) -> Piece {
 	if square_occupied(board.white_pawns, square) do return Piece.White_Pawn
 	else if square_occupied(board.black_pawns, square) do return Piece.Black_Pawn
