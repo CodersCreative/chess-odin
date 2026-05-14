@@ -3,6 +3,7 @@ package chess
 import "core:fmt"
 import "core:os"
 import "core:strings"
+import "core:time"
 
 
 is_valid_notation :: proc(move: string) -> bool {
@@ -65,42 +66,82 @@ process_move :: proc(board: ^Board, str_move: string) -> (Move, string) {
 
 }
 
+get_ai_players :: proc(buffer: []byte) -> (bool, bool) {
+	player1 := false
+	player2 := false
+
+	fmt.print("Should Player 1 Be AI (y/n)? ")
+	os.read(os.stdin, buffer[:])
+	str := string(buffer[:])
+	player1 = strings.contains_any(str, "y")
+
+	fmt.print("Should Player 2 Be AI (y/n)? ")
+	os.read(os.stdin, buffer[:])
+	str = string(buffer[:])
+	player2 = strings.contains_any(str, "y")
+
+	return player1, player2
+}
+
+MINIMAX_DEPTH :: 40
+HistoryMove :: struct {
+	piece: Piece,
+	move:  Move,
+}
+
+
 main :: proc() {
-	board := DEFAULT_BOARD
-	buffer: [10]byte
-	player := Piece_Color.White
-
 	for {
-		fmt.print("\e[2J\e[H")
-		display_board(&board)
-		in_check := is_in_check(&board, player)
+		board := DEFAULT_BOARD
+		history: [dynamic]HistoryMove
+		buffer: [10]byte
+		player := Piece_Color.White
+		is_player1_ai, is_player2_ai := get_ai_players(buffer[:])
 
-		#partial switch player {
-		case Piece_Color.Black:
-			fmt.println("Player : Black")
-		case Piece_Color.White:
-			fmt.println("Player : White")
-		}
+		for {
+			fmt.print("\e[2J\e[H")
+			display_board(&board)
+			display_history(history[:])
+			in_check := is_in_check(&board, player)
 
-		if in_check {
-			winner := check_win(&board)
-
-			switch winner {
-			case Piece_Color.White:
-				fmt.println("White Won!!!")
-				return
+			#partial switch player {
 			case Piece_Color.Black:
-				fmt.println("Black Won!!!")
-				return
-			case Piece_Color.None:
-				fmt.println("In Check - Protect your king.\n")
+				fmt.println("Player : Black")
+			case Piece_Color.White:
+				fmt.println("Player : White")
 			}
 
-		} else do fmt.println("")
+			if in_check {
+				winner := check_win(&board)
 
-		move := handle_move_notation_input(&board, buffer[:], player, "")
-		perform_move(&board, move)
-		player = invert_color(player)
+				switch winner {
+				case Piece_Color.White:
+					fmt.println("White Won!!!")
+					return
+				case Piece_Color.Black:
+					fmt.println("Black Won!!!")
+					return
+				case Piece_Color.None:
+					fmt.println("In Check - Protect your king.\n")
+				}
+
+			} else do fmt.println("")
+
+			move: Move
+			if player == Piece_Color.White && is_player1_ai ||
+			   player == Piece_Color.Black && is_player2_ai {
+				time.sleep(2 * time.Second)
+				move = start_minimax(&board, MINIMAX_DEPTH, player)
+			} else {
+				move = handle_move_notation_input(&board, buffer[:], player, "")
+			}
+
+			piece := get_piece(&board, move.from)
+			append(&history, HistoryMove{piece, move})
+
+			force_move(&board, move)
+			player = invert_color(player)
+		}
 	}
 }
 

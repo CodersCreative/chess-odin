@@ -84,12 +84,16 @@ do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
 	}
 }
 
-perform_move :: proc(board: ^Board, move: Move) {
+force_move :: proc(board: ^Board, move: Move) {
 	piece := get_piece(board, move.from)
 	target_piece := get_piece(board, move.to)
 	do_action_to_bitboard(board, piece, (1 << move.to) - (1 << move.from))
 
 	if target_piece != Piece.None do do_action_to_bitboard(board, target_piece, -(1 << move.to))
+}
+
+force_add_piece :: proc(board: ^Board, piece: Piece, to: u64) {
+	if piece != Piece.None do do_action_to_bitboard(board, piece, -(1 << to))
 }
 
 move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
@@ -241,5 +245,22 @@ display_board :: proc(board: ^Board) {
 		fmt.print("|\n")
 		fmt.printfln("+----+----+----+----+----+----+----+----+----+")
 	}
+}
+
+display_history :: proc(history: []HistoryMove) {
+	history_len := len(history)
+	height := cast(int)(history_len / 4) + ((history_len % 4 == 0) ? 0 : 1)
+
+	for y in 0 ..< height {
+		for x in 0 ..< 4 {
+			index := y * 4 + x
+			if index >= history_len do continue
+			move := history[index]
+			fmt.printf("%s : %d-%d", piece_to_str(move.piece), move.move.from, move.move.to)
+		}
+		fmt.print("\n")
+	}
+
+	fmt.print("\n")
 }
 
