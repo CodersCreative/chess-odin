@@ -83,12 +83,13 @@ get_ai_players :: proc(buffer: []byte) -> (bool, bool) {
 	return player1, player2
 }
 
-MINIMAX_DEPTH :: 5
+MINIMAX_DEPTH :: 4
+AI_MOVE_DURATION_SEC :: 1.0
+
 HistoryMove :: struct {
 	piece: Piece,
 	move:  Move,
 }
-
 
 main :: proc() {
 	for {
@@ -135,8 +136,8 @@ main :: proc() {
 				move = start_minimax(&board, MINIMAX_DEPTH, player)
 				duration := time.tick_diff(start, time.tick_now())
 
-				if duration < 2 * time.Second {
-					time.sleep(duration - 2 * time.Second)
+				if duration < AI_MOVE_DURATION_SEC * time.Second {
+					time.sleep(AI_MOVE_DURATION_SEC * time.Second - duration)
 				}
 
 

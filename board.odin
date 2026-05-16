@@ -112,22 +112,49 @@ force_add_piece :: proc(board: ^Board, piece: Piece, to: u64) {
 
 move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
 	froms := make([dynamic]u64)
+	pieces := get_all_player_pieces(board, by)
 
-	for x in 0 ..< 8 {
-		for y in 0 ..< 8 {
-			square := get_bitboard_square(x, y)
-			piece := get_piece(board, square)
-			if get_piece_color(piece) != by do continue
+	for square in pieces {
+		piece := get_piece(board, square)
+		if get_piece_color(piece) != by do continue
 
-			moves := get_moves(board, square, piece)
+		moves := get_moves(board, square, piece)
 
-			for target in moves {
-				if target == to do append(&froms, square)
-			}
+		for target in moves {
+			if target == to do append(&froms, square)
 		}
 	}
 
 	return froms
+}
+
+get_player_bitboard :: proc(board: ^Board, player: Piece_Color) -> u64 {
+	bitboard: u64
+
+	#partial switch player {
+	case Piece_Color.Black:
+		bitboard =
+			board.black_bishops |
+			board.black_king |
+			board.black_knights |
+			board.black_pawns |
+			board.black_queens |
+			board.black_rooks
+	case Piece_Color.White:
+		bitboard =
+			board.white_bishops |
+			board.white_king |
+			board.white_knights |
+			board.white_pawns |
+			board.white_queens |
+			board.white_rooks
+	}
+
+	return bitboard
+}
+
+get_all_player_pieces :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64 {
+	return bitboard_to_squares(get_player_bitboard(board, player))
 }
 
 is_in_check :: proc(board: ^Board, player: Piece_Color) -> bool {
@@ -199,18 +226,17 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 		return moves
 	}
 
-	for x in 0 ..< 8 {
-		for y in 0 ..< 8 {
-			square := get_bitboard_square(x, y)
-			piece := get_piece(board, square)
-			if get_piece_color(piece) != player do continue
+	pieces := get_all_player_pieces(board, player)
+	for square in pieces {
+		piece := get_piece(board, square)
+		if get_piece_color(piece) != player do continue
 
-			cur_moves := get_moves(board, square, piece)
+		cur_moves := get_moves(board, square, piece)
 
-			for pos in cur_moves {
-				append(&moves, Move{from = square, to = pos})
-			}
+		for pos in cur_moves {
+			append(&moves, Move{from = square, to = pos})
 		}
+
 	}
 
 	return moves
@@ -273,16 +299,28 @@ display_board :: proc(board: ^Board) {
 	}
 }
 
+square_to_notation :: proc(square: u64) -> string {
+	x, y := get_x_y_from_square(square)
+	return fmt.tprintf("%r%d", cast(rune)(97 + x), 8 - y)
+}
+
+HISTORY_WIDTH :: 6
+
 display_history :: proc(history: []HistoryMove) {
 	history_len := len(history)
-	height := cast(int)(history_len / 4) + ((history_len % 4 == 0) ? 0 : 1)
+	height := cast(int)(history_len / HISTORY_WIDTH) + ((history_len % HISTORY_WIDTH == 0) ? 0 : 1)
 
 	for y in 0 ..< height {
-		for x in 0 ..< 4 {
-			index := y * 4 + x
+		for x in 0 ..< HISTORY_WIDTH {
+			index := y * HISTORY_WIDTH + x
 			if index >= history_len do continue
 			move := history[index]
-			fmt.printf("%s : %d-%d", piece_to_str(move.piece), move.move.from, move.move.to)
+			fmt.printf(
+				"%s : %s-%s | ",
+				piece_to_str(move.piece),
+				square_to_notation(move.move.from),
+				square_to_notation(move.move.to),
+			)
 		}
 		fmt.print("\n")
 	}

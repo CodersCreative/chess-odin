@@ -21,13 +21,12 @@ minimax :: proc(
 	inverted_player := invert_color(player)
 
 	if win == player {
-		return 50 - (5 - cast(i64)depth), Move{}
+		return 50 - (MINIMAX_DEPTH - cast(i64)depth), Move{}
 	} else if win == inverted_player {
 		return -50 + cast(i64)depth, Move{}
 	} else if depth <= 0 {
 		return 0, Move{}
 	}
-
 
 	alpha := alpha
 	beta := beta
