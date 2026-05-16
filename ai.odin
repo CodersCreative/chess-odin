@@ -18,10 +18,11 @@ minimax :: proc(
 	Move,
 ) {
 	win := check_win(board)
+	inverted_player := invert_color(player)
 
 	if win == player {
-		return 50 - (40 - cast(i64)depth), Move{}
-	} else if win != player {
+		return 50 - (5 - cast(i64)depth), Move{}
+	} else if win == inverted_player {
 		return -50 + cast(i64)depth, Move{}
 	} else if depth <= 0 {
 		return 0, Move{}
@@ -30,7 +31,7 @@ minimax :: proc(
 
 	alpha := alpha
 	beta := beta
-	inverted_player := invert_color(player)
+
 	available_moves := get_all_moves_possible(board, (maximising) ? player : inverted_player)
 	best_score: i64 = (maximising) ? bits.I64_MIN : bits.I64_MAX
 	best_move: Move = len(available_moves) == 0 ? Move{} : available_moves[0]

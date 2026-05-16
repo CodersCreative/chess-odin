@@ -1,6 +1,7 @@
 package chess
 
 import "core:fmt"
+import "core:math/bits"
 
 Board :: struct {
 	white_pawns:   u64,
@@ -43,6 +44,19 @@ display_bitboard :: proc(bitboard: u64) {
 
 get_bitboard_square :: proc(x: int, y: int) -> u64 {
 	return cast(u64)(y * 8 + x)
+}
+
+bitboard_to_squares :: proc(bitboard: u64) -> [dynamic]u64 {
+	squares := make([dynamic]u64)
+	temp_board := bitboard
+
+	for temp_board > 0 {
+		trailing_zeros := bits.count_trailing_zeros(temp_board)
+		append(&squares, cast(u64)trailing_zeros)
+		temp_board &= temp_board - 1
+	}
+
+	return squares
 }
 
 get_x_y_from_square :: proc(square: u64) -> (x: int, y: int) {
@@ -93,7 +107,7 @@ force_move :: proc(board: ^Board, move: Move) {
 }
 
 force_add_piece :: proc(board: ^Board, piece: Piece, to: u64) {
-	if piece != Piece.None do do_action_to_bitboard(board, piece, -(1 << to))
+	if piece != Piece.None do do_action_to_bitboard(board, piece, (1 << to))
 }
 
 move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
@@ -119,9 +133,13 @@ move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
 is_in_check :: proc(board: ^Board, player: Piece_Color) -> bool {
 	#partial switch player {
 	case Piece_Color.Black:
-		return len(move_possible(board, board.black_king, Piece_Color.White)) != 0
+		black_king_squares := bitboard_to_squares(board.black_king)
+		if len(black_king_squares) == 0 do return false
+		return len(move_possible(board, black_king_squares[0], Piece_Color.White)) != 0
 	case Piece_Color.White:
-		return len(move_possible(board, board.white_king, Piece_Color.Black)) != 0
+		white_king_squares := bitboard_to_squares(board.white_king)
+		if len(white_king_squares) == 0 do return false
+		return len(move_possible(board, white_king_squares[0], Piece_Color.Black)) != 0
 	}
 
 	return false
@@ -132,16 +150,20 @@ get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64
 
 	#partial switch player {
 	case Piece_Color.Black:
-		moves := get_moves(board, board.black_king, Piece.Black_King)
+		black_king_squares := bitboard_to_squares(board.black_king)
+		if len(black_king_squares) == 0 do return valid_moves
+		moves := get_moves(board, black_king_squares[0], Piece.Black_King)
 
 		for move in moves {
-			if len(move_possible(board, move, Piece_Color.White)) != 0 do append(&valid_moves, move)
+			if len(move_possible(board, move, Piece_Color.White)) == 0 do append(&valid_moves, move)
 		}
 	case Piece_Color.White:
-		moves := get_moves(board, board.white_king, Piece.White_King)
+		white_king_squares := bitboard_to_squares(board.white_king)
+		if len(white_king_squares) == 0 do return valid_moves
+		moves := get_moves(board, white_king_squares[0], Piece.White_King)
 
 		for move in moves {
-			if len(move_possible(board, move, Piece_Color.Black)) != 0 do append(&valid_moves, move)
+			if len(move_possible(board, move, Piece_Color.Black)) == 0 do append(&valid_moves, move)
 		}
 	}
 
@@ -167,7 +189,11 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 
 	if is_in_check(board, player) {
 		to_positions := get_valid_king_moves(board, player)
-		from := (player == Piece_Color.Black) ? board.black_king : board.white_king
+		king_squares := bitboard_to_squares(
+			(player == Piece_Color.Black) ? board.black_king : board.white_king,
+		)
+		if len(king_squares) == 0 do return moves
+		from := king_squares[0]
 
 		for to in to_positions do append(&moves, Move{from, to})
 		return moves

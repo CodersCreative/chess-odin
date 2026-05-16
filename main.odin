@@ -83,7 +83,7 @@ get_ai_players :: proc(buffer: []byte) -> (bool, bool) {
 	return player1, player2
 }
 
-MINIMAX_DEPTH :: 40
+MINIMAX_DEPTH :: 5
 HistoryMove :: struct {
 	piece: Piece,
 	move:  Move,
@@ -92,6 +92,7 @@ HistoryMove :: struct {
 
 main :: proc() {
 	for {
+		fmt.print("\e[2J\e[H")
 		board := DEFAULT_BOARD
 		history: [dynamic]HistoryMove
 		buffer: [10]byte
@@ -117,10 +118,10 @@ main :: proc() {
 				switch winner {
 				case Piece_Color.White:
 					fmt.println("White Won!!!")
-					return
+					break
 				case Piece_Color.Black:
 					fmt.println("Black Won!!!")
-					return
+					break
 				case Piece_Color.None:
 					fmt.println("In Check - Protect your king.\n")
 				}
@@ -130,8 +131,15 @@ main :: proc() {
 			move: Move
 			if player == Piece_Color.White && is_player1_ai ||
 			   player == Piece_Color.Black && is_player2_ai {
-				time.sleep(2 * time.Second)
+				start := time.tick_now()
 				move = start_minimax(&board, MINIMAX_DEPTH, player)
+				duration := time.tick_diff(start, time.tick_now())
+
+				if duration < 2 * time.Second {
+					time.sleep(duration - 2 * time.Second)
+				}
+
+
 			} else {
 				move = handle_move_notation_input(&board, buffer[:], player, "")
 			}
