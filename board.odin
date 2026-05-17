@@ -4,20 +4,22 @@ import "core:fmt"
 import "core:math/bits"
 
 Board :: struct {
-	white_pawns:   u64,
-	black_pawns:   u64,
-	white_king:    u64,
-	black_king:    u64,
-	white_queens:  u64,
-	black_queens:  u64,
-	white_rooks:   u64,
-	black_rooks:   u64,
-	white_bishops: u64,
-	black_bishops: u64,
-	white_knights: u64,
-	black_knights: u64,
-	enpassant:     u16,
-	castling:      u8,
+	white_pawns:     u64,
+	black_pawns:     u64,
+	white_king:      u64,
+	black_king:      u64,
+	white_queens:    u64,
+	black_queens:    u64,
+	white_rooks:     u64,
+	black_rooks:     u64,
+	white_bishops:   u64,
+	black_bishops:   u64,
+	white_knights:   u64,
+	black_knights:   u64,
+	enpassant:       u16,
+	castling:        u8,
+	half_move_clock: u8,
+	full_move_clock: u8,
 }
 
 CASTLING_START: u8 : 0b01110111
@@ -49,6 +51,14 @@ DEFAULT_BOARD :: Board {
 	castling      = CASTLING_START,
 }
 
+load_fen :: proc(board: ^Board, player: ^Piece_Color, fen: string) -> bool {
+	return true
+}
+
+get_fen :: proc(board: ^Board, player: ^Piece_Color) -> string {
+	return ""
+}
+
 display_bitboard :: proc(bitboard: u64) {
 	for y in 0 ..< 8 {
 		for x in 0 ..< 8 {
@@ -75,7 +85,7 @@ bitboard_to_squares :: proc(bitboard: u64) -> [dynamic]u64 {
 	return squares
 }
 
-is_piece_stalemate :: proc(board: ^Board) -> bool {
+is_stalemate :: proc(board: ^Board) -> bool {
 	total := count_bitboard_pieces(get_total_bitboard(board, Piece_Color.None))
 
 	if total == 2 do return true
@@ -83,6 +93,8 @@ is_piece_stalemate :: proc(board: ^Board) -> bool {
 	if total == 3 && (count_bitboard_pieces(board.white_bishops | board.black_bishops) == 1 || count_bitboard_pieces(board.white_knights | board.black_knights) == 1) do return true
 
 	if total == 4 && (count_bitboard_pieces(board.white_knights | board.black_knights) == 2) do return true
+
+	if board.half_move_clock >= 50 do return true
 
 	return false
 }
@@ -201,8 +213,13 @@ force_move :: proc(board: ^Board, move: Move) {
 	}
 
 	do_action_to_bitboard(board, piece, move.to - move.from)
-	if target_piece != Piece.None do do_action_to_bitboard(board, target_piece, -move.to)
-	fmt.println(board.enpassant)
+	board.full_move_clock += 1
+
+	if target_piece != Piece.None {
+		board.half_move_clock = 0
+		do_action_to_bitboard(board, target_piece, -move.to)
+	} else if piece != Piece.White_Pawn && piece != Piece.Black_Pawn do board.half_move_clock += 1
+	else do board.half_move_clock = 0
 
 	if piece == Piece.White_Pawn && move.to & PROMOTION_WHITE != 0 {
 		do_action_to_bitboard(board, piece, -move.to)
@@ -376,7 +393,7 @@ is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
 check_win :: proc(board: ^Board) -> (Piece_Color, bool) {
 	if is_checkmate(board, Piece_Color.Black) do return Piece_Color.White, true
 	else if is_checkmate(board, Piece_Color.White) do return Piece_Color.Black, true
-	else do return Piece_Color.None, is_piece_stalemate(board)
+	else do return Piece_Color.None, is_stalemate(board)
 }
 
 

@@ -65,13 +65,19 @@ minimax :: proc(
 
 	for move in available_moves {
 		target_piece := get_piece(board, move.to)
+
 		en_passant := board.enpassant
+		half_move_clock := board.half_move_clock
+		full_move_clock := board.full_move_clock
+
 		force_move(board, move)
-
 		score, _ := minimax(board, !maximising, depth - 1, player, alpha, beta)
-
 		force_move(board, Move{from = move.to, to = move.from})
+
 		board.enpassant = en_passant
+		board.half_move_clock = half_move_clock
+		board.full_move_clock = full_move_clock
+
 		force_add_piece(board, target_piece, move.to)
 
 		if maximising {

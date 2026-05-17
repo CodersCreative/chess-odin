@@ -33,7 +33,7 @@ get_move_from_notation :: proc(move: string) -> Move {
 handle_move_notation_input :: proc(
 	board: ^Board,
 	buffer: []byte,
-	player: Piece_Color,
+	player: ^Piece_Color,
 	retrying: string,
 ) -> Move {
 	if retrying != "" do fmt.printf("%s, please retry : ", retrying)
@@ -41,11 +41,21 @@ handle_move_notation_input :: proc(
 
 	os.read(os.stdin, buffer[:])
 	str_move := string(buffer[:])
+
+	if strings.contains_any(str_move, "fen") {
+		return handle_move_notation_input(
+			board,
+			buffer,
+			player,
+			fmt.tprintf("FEN output: %s", get_fen(board, player)),
+		)
+	}
+
 	move, err := process_move(board, str_move)
 
 	if err != "" do return handle_move_notation_input(board, buffer, player, err)
 
-	if get_piece_color(get_piece(board, move.from)) != player do return handle_move_notation_input(board, buffer, player, "Move is not possible because it is not your piece")
+	if get_piece_color(get_piece(board, move.from)) != player^ do return handle_move_notation_input(board, buffer, player, "Move is not possible because it is not your piece")
 
 	return move
 }
@@ -83,6 +93,29 @@ get_ai_players :: proc(buffer: []byte) -> (bool, bool) {
 	return player1, player2
 }
 
+handle_fen :: proc(board: ^Board, player: ^Piece_Color, buffer: []byte) {
+	fmt.print("Load a FEN situation (y/n)? ")
+	os.read(os.stdin, buffer[:])
+	str := string(buffer[:])
+	if strings.contains_any(str, "y") {
+		for true {
+			fmt.print("FEN : ")
+			os.read(os.stdin, buffer[:])
+			fen := string(buffer[:])
+
+			if load_fen(board, player, fen) {
+				fmt.println("FEN successfully loaded!")
+				break
+			} else {
+				fmt.println("Invalid FEN string entered, try again.")
+			}
+		}
+	}
+
+	fmt.println("Remember the FEN situation can be loaded at any time by inputting `fen`")
+	time.sleep(1 * time.Second)
+}
+
 MINIMAX_DEPTH :: 3
 AI_MOVE_DURATION_SEC :: 1.0
 
@@ -96,15 +129,17 @@ main :: proc() {
 		fmt.print("\e[2J\e[H")
 		board := DEFAULT_BOARD
 		history: [dynamic]HistoryMove
-		buffer: [10]byte
+		buffer: [100]byte
 		player := Piece_Color.White
+
 		is_player1_ai, is_player2_ai := get_ai_players(buffer[:])
+		handle_fen(&board, &player, buffer[:])
 
 		for {
 			fmt.print("\e[2J\e[H")
 			display_board(&board)
 			display_history(history[:])
-			in_check := is_in_check(&board, player) || is_piece_stalemate(&board)
+			in_check := is_in_check(&board, player) || is_stalemate(&board)
 
 			#partial switch player {
 			case Piece_Color.Black:
@@ -145,10 +180,8 @@ main :: proc() {
 				if duration < AI_MOVE_DURATION_SEC * time.Second {
 					time.sleep(AI_MOVE_DURATION_SEC * time.Second - duration)
 				}
-
-
 			} else {
-				move = handle_move_notation_input(&board, buffer[:], player, "")
+				move = handle_move_notation_input(&board, buffer[:], &player, "")
 			}
 
 			piece := get_piece(&board, move.from)
