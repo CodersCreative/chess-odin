@@ -42,13 +42,23 @@ handle_move_notation_input :: proc(
 	os.read(os.stdin, buffer[:])
 	str_move := string(buffer[:])
 
-	if strings.contains_any(str_move, "fen") {
+	if strings.contains(str_move, "fen") {
 		return handle_move_notation_input(
 			board,
 			buffer,
 			player,
-			fmt.tprintf("FEN output: %s", get_fen(board, player)),
+			fmt.tprintf("FEN output:\n%s", get_fen(board, player)),
 		)
+	} else if strings.contains(str_move, "pgn") {
+		return handle_move_notation_input(
+			board,
+			buffer,
+			player,
+			fmt.tprintf("PGN output:\n%s", get_pgn(board, player)),
+		)
+	} else if strings.contains(str_move, "end") || strings.contains(str_move, "quit") {
+		player^ = Piece_Color.None
+		return Move{}
 	}
 
 	move, err := process_move(board, str_move)
@@ -112,7 +122,30 @@ handle_fen :: proc(board: ^Board, player: ^Piece_Color, buffer: []byte) {
 		}
 	}
 
-	fmt.println("Remember the FEN situation can be loaded at any time by inputting `fen`")
+	fmt.println("Remember the FEN can be displayed at any time by inputting `fen`")
+	time.sleep(1 * time.Second)
+}
+
+handle_pgn :: proc(board: ^Board, player: ^Piece_Color, buffer: []byte) {
+	fmt.print("Load a PGN situation (y/n)? ")
+	os.read(os.stdin, buffer[:])
+	str := string(buffer[:])
+	if strings.contains_any(str, "y") {
+		for true {
+			fmt.print("PGN : ")
+			os.read(os.stdin, buffer[:])
+			fen := string(buffer[:])
+
+			if load_pgn(board, player, fen) {
+				fmt.println("PGN successfully loaded!")
+				break
+			} else {
+				fmt.println("Invalid PGN string entered, try again.")
+			}
+		}
+	}
+
+	fmt.println("Remember the PGN can be displayed at any time by inputting `pgn`")
 	time.sleep(1 * time.Second)
 }
 
@@ -131,9 +164,11 @@ main :: proc() {
 		history: [dynamic]HistoryMove
 		buffer: [100]byte
 		player := Piece_Color.White
-
 		is_player1_ai, is_player2_ai := get_ai_players(buffer[:])
 		handle_fen(&board, &player, buffer[:])
+		handle_pgn(&board, &player, buffer[:])
+		fmt.println("The game can be restarted by inputting `end` or `quit` at any time.")
+		time.sleep(1 * time.Second)
 
 		for {
 			fmt.print("\e[2J\e[H")
@@ -182,6 +217,12 @@ main :: proc() {
 				}
 			} else {
 				move = handle_move_notation_input(&board, buffer[:], &player, "")
+			}
+
+			if player == Piece_Color.None {
+				fmt.println("Restart Requested. Please Wait...")
+				time.sleep(1 * time.Second)
+				break
 			}
 
 			piece := get_piece(&board, move.from)

@@ -51,16 +51,8 @@ DEFAULT_BOARD :: Board {
 	castling      = CASTLING_START,
 }
 
-load_fen :: proc(board: ^Board, player: ^Piece_Color, fen: string) -> bool {
-	return true
-}
-
-get_fen :: proc(board: ^Board, player: ^Piece_Color) -> string {
-	return ""
-}
-
 display_bitboard :: proc(bitboard: u64) {
-	for y in 0 ..< 8 {
+	for y := 9; y > 0; y -= 1 {
 		for x in 0 ..< 8 {
 			fmt.printf("%d ", square_occupied(bitboard, get_bitboard_square(x, y)) ? 1 : 0)
 		}

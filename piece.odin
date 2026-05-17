@@ -58,6 +58,70 @@ get_piece_color :: proc(piece: Piece) -> Piece_Color {
 	return Piece_Color.None
 }
 
+get_piece_from_fen_piece :: proc(piece: u8) -> Piece {
+	switch piece {
+	case 'P':
+		return Piece.White_Pawn
+	case 'p':
+		return Piece.Black_Pawn
+	case 'K':
+		return Piece.White_King
+	case 'k':
+		return Piece.Black_King
+	case 'Q':
+		return Piece.White_Queen
+	case 'q':
+		return Piece.Black_Queen
+	case 'R':
+		return Piece.White_Rook
+	case 'r':
+		return Piece.Black_Rook
+	case 'B':
+		return Piece.White_Bishop
+	case 'b':
+		return Piece.Black_Bishop
+	case 'N':
+		return Piece.White_Knight
+	case 'n':
+		return Piece.Black_Knight
+	}
+
+	return Piece.None
+}
+
+piece_to_fen_piece :: proc(piece: Piece) -> u8 {
+	switch piece {
+	case Piece.White_Pawn:
+		return 'P'
+	case Piece.Black_Pawn:
+		return 'p'
+	case Piece.White_King:
+		return 'K'
+	case Piece.Black_King:
+		return 'k'
+	case Piece.White_Queen:
+		return 'Q'
+	case Piece.Black_Queen:
+		return 'q'
+	case Piece.White_Rook:
+		return 'R'
+	case Piece.Black_Rook:
+		return 'r'
+	case Piece.White_Bishop:
+		return 'B'
+	case Piece.Black_Bishop:
+		return 'b'
+	case Piece.White_Knight:
+		return 'N'
+	case Piece.Black_Knight:
+		return 'n'
+	case Piece.None:
+		return ' '
+	}
+
+	return ' '
+}
+
 piece_to_str :: proc(piece: Piece) -> string {
 	switch piece {
 	case Piece.White_Pawn:
