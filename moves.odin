@@ -163,11 +163,15 @@ get_moves :: proc(board: ^Board, square: u64, piece: Piece = Piece.None) -> [dyn
 	return make([dynamic]u64)
 }
 
+move_to_bitboard :: proc(move: u64) -> u64 {
+	return 1 << move
+}
+
 get_moves_bitboard :: proc(moves: []u64) -> u64 {
 	board: u64 = 0
 
 	for move in moves {
-		board |= 1 << move
+		board |= move_to_bitboard(move)
 	}
 
 	return board
