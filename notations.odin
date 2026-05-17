@@ -2,8 +2,10 @@ package chess
 
 import "core:fmt"
 import "core:math/bits"
+import "core:math/rand"
 import "core:strconv"
 import "core:strings"
+
 
 load_fen :: proc(board: ^Board, player: ^Piece_Color, fen: string) -> bool {
 	board^ = Board{}
@@ -207,7 +209,53 @@ get_pgn :: proc(board: ^Board, player: ^Piece_Color) -> string {
 	return ""
 }
 
+ZOBRIST_PIECES: [12][64]u64
+ZOBRIST_CASTLING: [16]u64
+ZOBRIST_ENPASSANT: [8]u64
+ZOBRIST_PLAYER: u64
+ZOBRIST_INIT := false
+
+init_zobrist :: proc() {
+	if ZOBRIST_INIT do return
+	rand.reset(67)
+
+	for i in 0 ..< 12 {
+		for j in 0 ..< 64 {
+			ZOBRIST_PIECES[i][j] = rand.uint64()
+		}
+	}
+	for i in 0 ..< 16 {
+		ZOBRIST_CASTLING[i] = rand.uint64()
+	}
+	for i in 0 ..< 8 {
+		ZOBRIST_ENPASSANT[i] = rand.uint64()
+	}
+	ZOBRIST_PLAYER = rand.uint64()
+	ZOBRIST_INIT = true
+}
+
 get_zobrist :: proc(board: ^Board, player: ^Piece_Color) -> u64 {
-	return 0
+	if !ZOBRIST_INIT do init_zobrist()
+
+	hash: u64 = 0
+
+	for sq in 0 ..< 64 {
+		piece := get_piece(board, 1 << cast(u64)sq)
+		if piece != Piece.None {
+			hash ~= ZOBRIST_PIECES[int(piece)][sq]
+		}
+	}
+
+	hash ~= ZOBRIST_CASTLING[board.castling & 0x0F]
+
+	if board.enpassant != 0 {
+		hash ~= ZOBRIST_ENPASSANT[bits.count_trailing_zeros(board.enpassant) % 8]
+	}
+
+	if player^ == Piece_Color.Black {
+		hash ~= ZOBRIST_PLAYER
+	}
+
+	return hash
 }
 
