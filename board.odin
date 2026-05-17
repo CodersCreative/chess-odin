@@ -17,16 +17,27 @@ Board :: struct {
 	white_knights: u64,
 	black_knights: u64,
 	enpassant:     u16,
+	castling:      u8,
 }
 
-WHITE_PAWNS_START :: 0x000000000000FF00
-BLACK_PAWNS_START :: 0x00FF000000000000
+CASTLING_START: u8 : 0b01110111
+BLACK_K_CASTLING_VALID: u8 : 0b00110000
+BLACK_Q_CASTLING_VALID: u8 : 0b01010000
+
+WHITE_K_CASTLING_VALID: u8 : 0b00000011
+WHITE_Q_CASTLING_VALID: u8 : 0b00000101
+
+WHITE_KING_START: u64 : 0x0000000000000010
+BLACK_KING_START: u64 : 0x1000000000000000
+
+WHITE_PAWNS_START: u64 : 0x000000000000FF00
+BLACK_PAWNS_START: u64 : 0x00FF000000000000
 
 DEFAULT_BOARD :: Board {
 	white_pawns   = WHITE_PAWNS_START,
 	black_pawns   = BLACK_PAWNS_START,
-	white_king    = 0x0000000000000010,
-	black_king    = 0x1000000000000000,
+	white_king    = WHITE_KING_START,
+	black_king    = BLACK_KING_START,
 	white_queens  = 0x0000000000000008,
 	black_queens  = 0x0800000000000000,
 	white_rooks   = 0x0000000000000081,
@@ -35,6 +46,7 @@ DEFAULT_BOARD :: Board {
 	black_bishops = 0x2400000000000000,
 	white_knights = 0x0000000000000042,
 	black_knights = 0x4200000000000000,
+	castling      = CASTLING_START,
 }
 
 display_bitboard :: proc(bitboard: u64) {
@@ -47,7 +59,7 @@ display_bitboard :: proc(bitboard: u64) {
 }
 
 get_bitboard_square :: proc(x: int, y: int) -> u64 {
-	return cast(u64)(y * 8 + x)
+	return 1 << cast(u64)(y * 8 + x)
 }
 
 bitboard_to_squares :: proc(bitboard: u64) -> [dynamic]u64 {
@@ -64,8 +76,9 @@ bitboard_to_squares :: proc(bitboard: u64) -> [dynamic]u64 {
 }
 
 get_x_y_from_square :: proc(square: u64) -> (x: int, y: int) {
-	x = cast(int)square % 8
-	y = cast(int)square / 8
+	square := bits.count_trailing_zeros(square)
+	x = cast(int)square & 7
+	y = cast(int)square >> 3
 	return
 }
 
@@ -74,7 +87,7 @@ count_pieces :: proc(bitboard: u64) -> u8 {
 }
 
 square_occupied :: proc(bitboard: u64, square: u64) -> bool {
-	return (bitboard & (1 << square)) != 0
+	return (bitboard & square) != 0
 }
 
 do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
@@ -106,58 +119,62 @@ do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
 	}
 }
 
-ENPASSANT_BLACK :: 0x00000000FF000000
-ENPASSANT_WHITE :: 0x000000FF00000000
+ENPASSANT_WHITE: u64 : 0x00000000FF000000
+ENPASSANT_BLACK: u64 : 0x000000FF00000000
 
-PROMOTION_BLACK :: 0xFF00000000000000
-PROMOTION_WHITE :: 0x00000000000000FF
+PROMOTION_WHITE: u64 : 0xFF00000000000000
+PROMOTION_BLACK: u64 : 0x00000000000000FF
 
 force_move :: proc(board: ^Board, move: Move) {
 	piece := get_piece(board, move.from)
-
-	move_to_pos := move_to_bitboard(move.to)
-	move_from_pos := move_to_bitboard(move.from)
 	target_piece := get_piece(board, move.to)
 
 	if piece == Piece.White_Pawn &&
-	   move_to_pos & ENPASSANT_WHITE != 0 &&
-	   move_from_pos & WHITE_PAWNS_START != 0 {
+	   move.to & ENPASSANT_WHITE != 0 &&
+	   move.from & WHITE_PAWNS_START != 0 {
 		board.enpassant = 0
 		x, _ := get_x_y_from_square(move.to)
 		board.enpassant |= 1 << cast(u16)(x)
 	} else if piece == Piece.Black_Pawn &&
-	   move_to_pos & ENPASSANT_WHITE != 0 &&
-	   move_from_pos & BLACK_PAWNS_START != 0 {
+	   move.to & ENPASSANT_BLACK != 0 &&
+	   move.from & BLACK_PAWNS_START != 0 {
 		board.enpassant = 0
 		x, _ := get_x_y_from_square(move.to)
 		board.enpassant |= 1 << cast(u16)(x + 8)
 	} else if target_piece == Piece.None && board.enpassant != 0 {
 		x, y := get_x_y_from_square(move.to)
-		if board.enpassant & (1 << cast(u16)(x + 8)) != 0 {
+		if board.enpassant & (1 << cast(u16)(x + 8)) != 0 &&
+		   get_piece_color(piece) != Piece_Color.Black {
 			square := get_bitboard_square(x, y - 1)
-			do_action_to_bitboard(board, Piece.Black_Pawn, -(1 << square))
-		} else if board.enpassant & (1 << cast(u16)(x)) != 0 {
+			do_action_to_bitboard(board, Piece.Black_Pawn, -square)
+		} else if board.enpassant & (1 << cast(u16)(x)) != 0 &&
+		   get_piece_color(piece) != Piece_Color.White {
 			square := get_bitboard_square(x, y + 1)
-			do_action_to_bitboard(board, Piece.White_Pawn, -(1 << square))
+			do_action_to_bitboard(board, Piece.White_Pawn, -square)
 		}
 
 		board.enpassant = 0
 	}
 
-	do_action_to_bitboard(board, piece, move_to_pos - move_from_pos)
-	if target_piece != Piece.None do do_action_to_bitboard(board, target_piece, -move_to_pos)
+	do_action_to_bitboard(board, piece, move.to - move.from)
+	if target_piece != Piece.None do do_action_to_bitboard(board, target_piece, -move.to)
+	fmt.println(board.enpassant)
 
-	if piece == Piece.White_Pawn && move_to_pos & PROMOTION_WHITE != 0 {
-		do_action_to_bitboard(board, piece, -move_to_pos)
-		do_action_to_bitboard(board, Piece.White_Queen, move_to_pos)
-	} else if piece == Piece.Black_Pawn && move_to_pos & PROMOTION_BLACK != 0 {
-		do_action_to_bitboard(board, piece, -move_to_pos)
-		do_action_to_bitboard(board, Piece.Black_Queen, move_to_pos)
+	if piece == Piece.White_Pawn && move.to & PROMOTION_WHITE != 0 {
+		do_action_to_bitboard(board, piece, -move.to)
+		do_action_to_bitboard(board, Piece.White_Queen, move.to)
+	} else if piece == Piece.Black_Pawn && move.to & PROMOTION_BLACK != 0 {
+		do_action_to_bitboard(board, piece, -move.to)
+		do_action_to_bitboard(board, Piece.Black_Queen, move.to)
+	} else if piece == Piece.White_King {
+
+	} else if piece == Piece.Black_King {
+
 	}
 }
 
 force_add_piece :: proc(board: ^Board, piece: Piece, to: u64) {
-	if piece != Piece.None do do_action_to_bitboard(board, piece, (1 << to))
+	if piece != Piece.None do do_action_to_bitboard(board, piece, to)
 }
 
 move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
@@ -322,7 +339,7 @@ piece_exists :: proc(board: ^Board, square: u64) -> bool {
 		board.black_bishops |
 		board.white_knights |
 		board.black_knights
-	return (combined & (1 << square)) != 0
+	return (combined & square) != 0
 }
 
 display_board :: proc(board: ^Board) {

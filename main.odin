@@ -83,7 +83,7 @@ get_ai_players :: proc(buffer: []byte) -> (bool, bool) {
 	return player1, player2
 }
 
-MINIMAX_DEPTH :: 4
+MINIMAX_DEPTH :: 3
 AI_MOVE_DURATION_SEC :: 1.0
 
 HistoryMove :: struct {

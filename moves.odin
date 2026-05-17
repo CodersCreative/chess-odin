@@ -113,6 +113,34 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		if !(new_x < 0 || new_x > 7 || new_y < 0 || new_y > 7) do add_move(board, &moves, new_x, new_y, color)
 	}
 
+	if color == Piece_Color.Black {
+		if board.castling & BLACK_K_CASTLING_VALID == BLACK_K_CASTLING_VALID &&
+		   !piece_exists(board, get_bitboard_square(6, 7)) &&
+		   !piece_exists(board, get_bitboard_square(5, 7)) {
+			append(&moves, get_bitboard_square(6, 7))
+		}
+
+		if board.castling & BLACK_Q_CASTLING_VALID == BLACK_Q_CASTLING_VALID &&
+		   !piece_exists(board, get_bitboard_square(1, 7)) &&
+		   !piece_exists(board, get_bitboard_square(2, 7)) &&
+		   !piece_exists(board, get_bitboard_square(3, 7)) {
+			append(&moves, get_bitboard_square(2, 7))
+		}
+	} else if color == Piece_Color.White {
+		if board.castling & WHITE_K_CASTLING_VALID == WHITE_K_CASTLING_VALID &&
+		   !piece_exists(board, get_bitboard_square(6, 0)) &&
+		   !piece_exists(board, get_bitboard_square(5, 0)) {
+			append(&moves, get_bitboard_square(6, 0))
+		}
+
+		if board.castling & WHITE_Q_CASTLING_VALID == WHITE_Q_CASTLING_VALID &&
+		   !piece_exists(board, get_bitboard_square(1, 0)) &&
+		   !piece_exists(board, get_bitboard_square(2, 0)) &&
+		   !piece_exists(board, get_bitboard_square(3, 0)) {
+			append(&moves, get_bitboard_square(2, 0))
+		}
+	}
+
 	return moves
 }
 
@@ -163,15 +191,12 @@ get_moves :: proc(board: ^Board, square: u64, piece: Piece = Piece.None) -> [dyn
 	return make([dynamic]u64)
 }
 
-move_to_bitboard :: proc(move: u64) -> u64 {
-	return 1 << move
-}
 
 get_moves_bitboard :: proc(moves: []u64) -> u64 {
 	board: u64 = 0
 
 	for move in moves {
-		board |= move_to_bitboard(move)
+		board |= move
 	}
 
 	return board
