@@ -11,20 +11,20 @@ KING_VALUE :: 180
 
 get_score :: proc(board: ^Board, player: Piece_Color) -> i64 {
 	black_score :=
-		cast(i64)count_pieces(board.black_bishops) * BISHOP_VALUE +
-		cast(i64)count_pieces(board.black_knights) * KNIGHT_VALUE +
-		cast(i64)count_pieces(board.black_king) * KING_VALUE +
-		cast(i64)count_pieces(board.black_pawns) * PAWN_VALUE +
-		cast(i64)count_pieces(board.black_queens) * QUEEN_VALUE +
-		cast(i64)count_pieces(board.black_rooks) * ROOK_VALUE
+		cast(i64)count_bitboard_pieces(board.black_bishops) * BISHOP_VALUE +
+		cast(i64)count_bitboard_pieces(board.black_knights) * KNIGHT_VALUE +
+		cast(i64)count_bitboard_pieces(board.black_king) * KING_VALUE +
+		cast(i64)count_bitboard_pieces(board.black_pawns) * PAWN_VALUE +
+		cast(i64)count_bitboard_pieces(board.black_queens) * QUEEN_VALUE +
+		cast(i64)count_bitboard_pieces(board.black_rooks) * ROOK_VALUE
 
 	white_score :=
-		cast(i64)count_pieces(board.white_bishops) * BISHOP_VALUE +
-		cast(i64)count_pieces(board.white_knights) * KNIGHT_VALUE +
-		cast(i64)count_pieces(board.white_king) * KING_VALUE +
-		cast(i64)count_pieces(board.white_pawns) * PAWN_VALUE +
-		cast(i64)count_pieces(board.white_queens) * QUEEN_VALUE +
-		cast(i64)count_pieces(board.white_rooks) * ROOK_VALUE
+		cast(i64)count_bitboard_pieces(board.white_bishops) * BISHOP_VALUE +
+		cast(i64)count_bitboard_pieces(board.white_knights) * KNIGHT_VALUE +
+		cast(i64)count_bitboard_pieces(board.white_king) * KING_VALUE +
+		cast(i64)count_bitboard_pieces(board.white_pawns) * PAWN_VALUE +
+		cast(i64)count_bitboard_pieces(board.white_queens) * QUEEN_VALUE +
+		cast(i64)count_bitboard_pieces(board.white_rooks) * ROOK_VALUE
 
 	return (white_score - black_score) * ((player == Piece_Color.Black) ? -1 : 1)
 }
@@ -45,15 +45,15 @@ minimax :: proc(
 	i64,
 	Move,
 ) {
-	win := check_win(board)
+	win, stalemate := check_win(board)
 	inverted_player := invert_color(player)
 
 	if win == player {
 		return 200 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player), Move{}
 	} else if win == inverted_player {
 		return -200 + cast(i64)depth + get_score(board, player), Move{}
-	} else if depth <= 0 {
-		return 0, Move{}
+	} else if depth <= 0 || stalemate {
+		return 0 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player), Move{}
 	}
 
 	alpha := alpha

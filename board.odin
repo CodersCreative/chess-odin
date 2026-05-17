@@ -75,6 +75,53 @@ bitboard_to_squares :: proc(bitboard: u64) -> [dynamic]u64 {
 	return squares
 }
 
+is_piece_stalemate :: proc(board: ^Board) -> bool {
+	total := count_bitboard_pieces(get_total_bitboard(board, Piece_Color.None))
+
+	if total == 2 do return true
+
+	if total == 3 && (count_bitboard_pieces(board.white_bishops | board.black_bishops) == 1 || count_bitboard_pieces(board.white_knights | board.black_knights) == 1) do return true
+
+	if total == 4 && (count_bitboard_pieces(board.white_knights | board.black_knights) == 2) do return true
+
+	return false
+}
+
+count_bitboard_pieces :: proc(bitboard: u64) -> u8 {
+	return cast(u8)bits.count_ones(bitboard)
+}
+
+count_pieces :: proc(board: ^Board, piece: Piece) -> u8 {
+	#partial switch piece {
+	case Piece.White_Pawn:
+		return count_bitboard_pieces(board.white_pawns)
+	case Piece.Black_Pawn:
+		return count_bitboard_pieces(board.black_pawns)
+	case Piece.White_King:
+		return count_bitboard_pieces(board.white_king)
+	case Piece.Black_King:
+		return count_bitboard_pieces(board.black_king)
+	case Piece.White_Queen:
+		return count_bitboard_pieces(board.white_queens)
+	case Piece.Black_Queen:
+		return count_bitboard_pieces(board.black_queens)
+	case Piece.White_Rook:
+		return count_bitboard_pieces(board.white_rooks)
+	case Piece.Black_Rook:
+		return count_bitboard_pieces(board.black_rooks)
+	case Piece.White_Bishop:
+		return count_bitboard_pieces(board.white_bishops)
+	case Piece.Black_Bishop:
+		return count_bitboard_pieces(board.black_bishops)
+	case Piece.White_Knight:
+		return count_bitboard_pieces(board.white_knights)
+	case Piece.Black_Knight:
+		return count_bitboard_pieces(board.black_knights)
+	}
+
+	return 0
+}
+
 get_x_y_from_square :: proc(square: u64) -> (x: int, y: int) {
 	square := bits.count_trailing_zeros(square)
 	x = cast(int)square & 7
@@ -82,9 +129,6 @@ get_x_y_from_square :: proc(square: u64) -> (x: int, y: int) {
 	return
 }
 
-count_pieces :: proc(bitboard: u64) -> u8 {
-	return cast(u8)bits.count_ones(bitboard)
-}
 
 square_occupied :: proc(bitboard: u64, square: u64) -> bool {
 	return (bitboard & square) != 0
@@ -240,7 +284,7 @@ move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
 	return froms
 }
 
-get_player_bitboard :: proc(board: ^Board, player: Piece_Color) -> u64 {
+get_total_bitboard :: proc(board: ^Board, player: Piece_Color) -> u64 {
 	bitboard: u64
 
 	#partial switch player {
@@ -260,13 +304,28 @@ get_player_bitboard :: proc(board: ^Board, player: Piece_Color) -> u64 {
 			board.white_pawns |
 			board.white_queens |
 			board.white_rooks
+	case Piece_Color.None:
+		return(
+			board.white_pawns |
+			board.black_pawns |
+			board.white_king |
+			board.black_king |
+			board.white_queens |
+			board.black_queens |
+			board.white_rooks |
+			board.black_rooks |
+			board.white_bishops |
+			board.black_bishops |
+			board.white_knights |
+			board.black_knights \
+		)
 	}
 
 	return bitboard
 }
 
 get_all_player_pieces :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64 {
-	return bitboard_to_squares(get_player_bitboard(board, player))
+	return bitboard_to_squares(get_total_bitboard(board, player))
 }
 
 is_in_check :: proc(board: ^Board, player: Piece_Color) -> bool {
@@ -314,10 +373,10 @@ is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
 	return len(get_valid_king_moves(board, player)) == 0
 }
 
-check_win :: proc(board: ^Board) -> Piece_Color {
-	if is_checkmate(board, Piece_Color.Black) do return Piece_Color.White
-	else if is_checkmate(board, Piece_Color.White) do return Piece_Color.Black
-	else do return Piece_Color.None
+check_win :: proc(board: ^Board) -> (Piece_Color, bool) {
+	if is_checkmate(board, Piece_Color.Black) do return Piece_Color.White, true
+	else if is_checkmate(board, Piece_Color.White) do return Piece_Color.Black, true
+	else do return Piece_Color.None, is_piece_stalemate(board)
 }
 
 
@@ -371,20 +430,7 @@ get_piece :: proc(board: ^Board, square: u64) -> Piece {
 }
 
 piece_exists :: proc(board: ^Board, square: u64) -> bool {
-	combined :=
-		board.white_pawns |
-		board.black_pawns |
-		board.white_king |
-		board.black_king |
-		board.white_queens |
-		board.black_queens |
-		board.white_rooks |
-		board.black_rooks |
-		board.white_bishops |
-		board.black_bishops |
-		board.white_knights |
-		board.black_knights
-	return (combined & square) != 0
+	return (get_total_bitboard(board, Piece_Color.None) & square) != 0
 }
 
 display_board :: proc(board: ^Board) {

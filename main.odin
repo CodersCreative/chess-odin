@@ -104,7 +104,7 @@ main :: proc() {
 			fmt.print("\e[2J\e[H")
 			display_board(&board)
 			display_history(history[:])
-			in_check := is_in_check(&board, player)
+			in_check := is_in_check(&board, player) || is_piece_stalemate(&board)
 
 			#partial switch player {
 			case Piece_Color.Black:
@@ -114,7 +114,7 @@ main :: proc() {
 			}
 
 			if in_check {
-				winner := check_win(&board)
+				winner, stalemate := check_win(&board)
 
 				switch winner {
 				case Piece_Color.White:
@@ -124,7 +124,13 @@ main :: proc() {
 					fmt.println("Black Won!!!")
 					break
 				case Piece_Color.None:
-					fmt.println("In Check - Protect your king.\n")
+					if stalemate {
+						fmt.println("Stalemate")
+						break
+					} else {
+						fmt.println("In Check - Protect your king.\n")
+					}
+
 				}
 
 			} else do fmt.println("")
