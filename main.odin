@@ -19,7 +19,7 @@ is_valid_notation :: proc(move: string) -> bool {
 }
 
 get_square_from_notation :: proc(letter: u8, number: u8) -> u64 {
-	return get_bitboard_square(cast(int)letter - 97, 7 - (cast(int)number - 49))
+	return get_bitboard_square(cast(int)letter - 97, (cast(int)number - 49))
 }
 
 get_move_from_notation :: proc(move: string) -> Move {

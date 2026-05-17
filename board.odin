@@ -166,11 +166,56 @@ force_move :: proc(board: ^Board, move: Move) {
 	} else if piece == Piece.Black_Pawn && move.to & PROMOTION_BLACK != 0 {
 		do_action_to_bitboard(board, piece, -move.to)
 		do_action_to_bitboard(board, Piece.Black_Queen, move.to)
-	} else if piece == Piece.White_King {
+	} else if piece == Piece.White_King && board.castling & 0b00001111 != 0 {
+		if move.to == get_bitboard_square(6, 0) &&
+		   board.castling & WHITE_K_CASTLING_VALID == WHITE_K_CASTLING_VALID {
+			do_action_to_bitboard(
+				board,
+				Piece.White_Rook,
+				get_bitboard_square(5, 0) - get_bitboard_square(7, 0),
+			)
+		} else if move.to == get_bitboard_square(2, 0) &&
+		   board.castling & WHITE_Q_CASTLING_VALID == WHITE_Q_CASTLING_VALID {
+			do_action_to_bitboard(
+				board,
+				Piece.White_Rook,
+				get_bitboard_square(3, 0) - get_bitboard_square(0, 0),
+			)
+		}
 
-	} else if piece == Piece.Black_King {
+		board.castling &= 0b11110000
+	} else if piece == Piece.Black_King && board.castling & 0b11110000 != 0 {
+		if move.to == get_bitboard_square(6, 7) &&
+		   board.castling & BLACK_K_CASTLING_VALID == BLACK_K_CASTLING_VALID {
+			do_action_to_bitboard(
+				board,
+				Piece.Black_Rook,
+				get_bitboard_square(5, 7) - get_bitboard_square(7, 7),
+			)
+		} else if move.to == get_bitboard_square(2, 7) &&
+		   board.castling & BLACK_Q_CASTLING_VALID == BLACK_Q_CASTLING_VALID {
+			do_action_to_bitboard(
+				board,
+				Piece.Black_Rook,
+				get_bitboard_square(3, 7) - get_bitboard_square(0, 7),
+			)
+		}
 
+		board.castling &= 0b00001111
+	} else if piece == Piece.White_Rook && board.castling & 0b00000110 != 0 {
+		if move.from == get_bitboard_square(0, 0) {
+			board.castling ~= 0b00000100
+		} else if move.from == get_bitboard_square(7, 0) {
+			board.castling ~= 0b00000010
+		}
+	} else if piece == Piece.Black_Rook && board.castling & 0b01100000 != 0 {
+		if move.from == get_bitboard_square(0, 7) {
+			board.castling ~= 0b01000000
+		} else if move.from == get_bitboard_square(7, 7) {
+			board.castling ~= 0b00100000
+		}
 	}
+
 }
 
 force_add_piece :: proc(board: ^Board, piece: Piece, to: u64) {
@@ -345,15 +390,15 @@ piece_exists :: proc(board: ^Board, square: u64) -> bool {
 display_board :: proc(board: ^Board) {
 	fmt.printfln("+----+----+----+----+----+----+----+----+----+")
 
-	for y in 0 ..< 9 {
+	for y := 9; y > 0; y -= 1 {
 		for x in 0 ..< 9 {
 
-			if y == 0 && x == 0 {
+			if y == 9 && x == 0 {
 				fmt.print("|    ")
-			} else if y == 0 {
+			} else if y == 9 {
 				fmt.printf("| %r  ", cast(rune)(96 + x))
 			} else if x == 0 {
-				fmt.printf("| %d  ", 9 - y)
+				fmt.printf("| %d  ", y)
 			} else {
 				fmt.printf(
 					"| %s ",
@@ -368,7 +413,7 @@ display_board :: proc(board: ^Board) {
 
 square_to_notation :: proc(square: u64) -> string {
 	x, y := get_x_y_from_square(square)
-	return fmt.tprintf("%r%d", cast(rune)(97 + x), 8 - y)
+	return fmt.tprintf("%r%d", cast(rune)(97 + x), y + 1)
 }
 
 HISTORY_WIDTH :: 6
