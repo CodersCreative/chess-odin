@@ -163,7 +163,7 @@ handle_pgn :: proc(board: ^Board, player: ^Piece_Color, buffer: []byte) {
 	str := string(buffer[:])
 	if strings.contains_any(str, "y") {
 		for true {
-			fmt.print("PGN : ")
+			fmt.print("PGN path : ")
 			os.read(os.stdin, buffer[:])
 			fen := string(buffer[:])
 

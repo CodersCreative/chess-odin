@@ -3,8 +3,10 @@ package chess
 import "core:fmt"
 import "core:math/bits"
 import "core:math/rand"
+import "core:os"
 import "core:strconv"
 import "core:strings"
+import "core:time"
 
 
 load_fen :: proc(board: ^Board, player: ^Piece_Color, fen: string) -> bool {
@@ -334,12 +336,163 @@ append_int_to_array :: proc(arr: ^[dynamic]u8, num: int) {
 	arr^ = builder.buf
 }
 
-load_pgn :: proc(board: ^Board, player: ^Piece_Color, pgn: string) -> bool {
-	return true
-}
 
 get_pgn :: proc(board: ^Board, player: ^Piece_Color) -> string {
 	return ""
+}
+
+load_pgn :: proc(board: ^Board, player: ^Piece_Color, path: string) -> bool {
+	pgn2 := `[Event "Wch1"]
+[Site "U.S.A."]
+[Date "1886.??.??"]
+[Round "9"]
+[White "Zukertort, Johannes"]
+[Black "Steinitz, Wilhelm"]
+[Result "0-1"]
+[ECO "D26h"]
+[Annotator "JvR"]
+
+1.d4 d5 2.c4 e6 3.Nc3 Nf6 4.Nf3 dxc4 5.e3 c5 6.Bxc4 cxd4 7.exd4 Be7 8.O-O
+O-O 9.Qe2 Nbd7 {This knight wants to blockades on d5.} 10.Bb3 Nb6 11.Bf4
+( 11.Re1 {keeps the initiative.} )
+11...Nbd5 12.Bg3 Qa5 13.Rac1 Bd7 14.Ne5 Rfd8 15.Qf3 Be8 16.Rfe1 Rac8 17.
+Bh4 {Intends 18.Nxd5 exd5.} 17...Nxc3 18.bxc3 Qc7 {Black pressures on the
+hanging pawns.} 19.Qd3
+( 19.Bg3 {!} 19...Bd6 20.c4 {(Lasker).} )
+19...Nd5 20.Bxe7 Qxe7 21.Bxd5 {?!}
+( 21.c4 Qg5 22.Rcd1 Nf4 23.Qg3 {steers towards a slight advantage in
+the endgame.} )
+21...Rxd5 22.c4 Rdd8 23.Re3 {The attack will fail.}
+( 23.Rcd1 {is solid.} )
+23...Qd6 24.Rd1 f6 25.Rh3 {!?} 25...h6 {!}
+( 25...fxe5 26.Qxh7+ Kf8 27.Rg3 {!} 27...Rd7
+( 27...Rc7 28.Qh8+ Ke7 29.Rxg7+ Bf7 30.Qh4+ {(Euwe)} )
+28.Qh8+ Ke7 29.Qh4+ Kf7 30.Qh7 {} )
+26.Ng4 Qf4 {!} 27.Ne3 Ba4 {!} 28.Rf3 Qd6 29.Rd2
+( 29.Rxf6 {?} 29...Bxd1 {!} )
+29...Bc6 {?}
+( 29...b5 {!} 30.Qg6 {!?}
+( 30.cxb5 Rc1+ 31.Nd1 Qxd4 32.Qxd4 Rxd4 33.Rxd4 Bxd1 $19 {
+(Vukovic).} )
+30...Qf8 31.Ng4 Rxc4 {!} 32.Nxh6+ Kh8 33.h3 gxh6 34.Rxf6 Qg7 {is good
+for Black).} )
+30.Rg3 {?}
+( 30.d5 {!} 30...Qe5 {!}
+( 30...exd5 {(Steinitz)} 31.Nf5 {(Euwe)} )
+31.Qb1 {Forestalls ..b5 and protects the first rank.} 31...exd5 32.
+cxd5 {} 32...Bxd5 {??} 33.Rf5 )
+30...f5 {Threatens ..f4.} 31.Rg6 {!?}
+( 31.Nd1 f4 32.Rh3 e5 {!} 33.d5 Bd7 $19 )
+31...Be4 32.Qb3 Kh7`
+
+	pgn := `
+1. e4 d5 2. Nc3 d4 3. Nd5 Nf6 4. Nxf6+ exf6 5. Nf3 Nc6 6. Bd3 Ne5 7. Nxe5 fxe5
+8. Bb5+ c6 9. Bc4 b5 10. Bb3 Be6 11. d3 Bb4+ 12. Bd2 a5 13. a3 Bxd2+ 14. Qxd2
+O-O 15. O-O a4 16. Bxe6 fxe6 17. f3 c5 18. c3 c4 19. cxd4 Qxd4+ 20. Kh1 cxd3 21.
+Rab1 Rac8 22. Rfd1 Rc2 23. Qxd3 Qf2 24. Qf1 Rxf3 25. Qxf2 Rfxf2 26. Rg1 Rce2 27.
+Rbe1 Rxb2 28. Rb1 Rxg2 29. Rxb2 Rxb2 30. Rd1 b4 31. Rd8+ Kf7 32. Ra8 bxa3 33.
+Rxa4 a2 34. Kg1 Kf6 35. Kf1 Rb1+ 36. Ke2 a1=Q 37. Rxa1 Rxa1 38. Ke3 Ra3+ 39. Kf2
+Kg5 40. h3 Kf4 41. h4 Ra2+ 42. Ke1 Ke3 43. Kf1 Kf3 44. Ke1 Ke3 45. Kd1 Kd3 46.
+Ke1 Re2+ 47. Kf1 Ke3 48. Kg1 Kf3 49. Kf1 Re3 50. Kg1 Kxe4 51. Kf2 Kf4 52. Kg2
+Re2+`
+
+
+	index := 0
+
+	for index < len(pgn) {
+		if strings.is_space(cast(rune)pgn[index]) {
+			index += 1
+			continue
+		}
+
+		if pgn[index] == '[' {
+			for index < len(pgn) && pgn[index] != ']' {
+				index += 1
+			}
+			if index < len(pgn) do index += 1
+			continue
+		}
+
+		if pgn[index] == '{' {
+			for index < len(pgn) && pgn[index] != '}' {
+				index += 1
+			}
+			if index < len(pgn) do index += 1
+			continue
+		}
+
+		if pgn[index] == '(' {
+			paren_depth := 1
+			index += 1
+			for index < len(pgn) && paren_depth > 0 {
+				if pgn[index] == '(' do paren_depth += 1
+				else if pgn[index] == ')' do paren_depth -= 1
+				index += 1
+			}
+			continue
+		}
+
+		if pgn[index] == '$' {
+			index += 1
+			for index < len(pgn) && pgn[index] >= '0' && pgn[index] <= '9' {
+				index += 1
+			}
+			continue
+		}
+
+		if pgn[index] >= '0' && pgn[index] <= '9' {
+			is_move_number := false
+			peek := index
+			for peek < len(pgn) && pgn[peek] >= '0' && pgn[peek] <= '9' {
+				peek += 1
+			}
+
+			if peek < len(pgn) && (pgn[peek] == '.' || pgn[peek] == '-') {
+				is_move_number = true
+			}
+
+			if is_move_number {
+				index = peek
+				for index < len(pgn) && pgn[index] == '.' {
+					index += 1
+				}
+				continue
+			}
+		}
+
+		start_token := index
+		for index < len(pgn) &&
+		    !strings.is_space(cast(rune)pgn[index]) &&
+		    pgn[index] != '[' &&
+		    pgn[index] != '{' &&
+		    pgn[index] != '(' &&
+		    pgn[index] != '$' {
+			index += 1
+		}
+
+		token := pgn[start_token:index]
+		token = strings.trim_space(token)
+		if len(token) == 0 do continue
+
+		if token == "1-0" || token == "0-1" || token == "1/2-1/2" || token == "*" {
+			break
+		}
+		fmt.println(token)
+		details, parse_ok := get_algebraic_notation_move_details(token)
+		fmt.println(parse_ok)
+		if !parse_ok do return false
+		display_board(board)
+		move, process_ok := process_algebraic_move(board, player^, details)
+
+		fmt.println(process_ok)
+		fmt.println(details)
+		if !process_ok do return false
+
+		force_move(board, move)
+		player^ = (player^ == Piece_Color.White) ? Piece_Color.Black : Piece_Color.White
+	}
+
+	return true
 }
 
 ZOBRIST_PIECES: [12][64]u64
