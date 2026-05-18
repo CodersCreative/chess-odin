@@ -38,7 +38,8 @@ handle_move_notation_input :: proc(
 	retrying: string,
 ) -> Move {
 	if retrying != "" do fmt.printf("%s, please retry : ", retrying)
-	else do fmt.print("Enter the move to be played (for example : a2-a3) : ")
+	else do fmt.print("Enter the move to be played (for example : a2-a3 or a3 - algebraic notation allowed ) :\n")
+
 
 	os.read(os.stdin, buffer[:])
 	str_move := string(buffer[:])
@@ -71,6 +72,13 @@ handle_move_notation_input :: proc(
 	move, err := process_move(board, str_move)
 
 	if err != "" {
+		algebraic_move, success := get_algebraic_notation_move_details(str_move)
+		if success {
+			move, success = process_algebraic_move(board, player^, algebraic_move)
+			if !success do return handle_move_notation_input(board, buffer, player, err)
+			else do return move
+		}
+
 		position := get_square_from_notation(str_move[0], str_move[1])
 		ones := bits.count_ones(position)
 		if ones != 1 do return handle_move_notation_input(board, buffer, player, err)

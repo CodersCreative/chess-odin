@@ -141,16 +141,23 @@ Notation_Details :: struct {
 	winner:            Piece_Color,
 }
 
-get_algebraic_notation_move_details :: proc(text: string) -> Notation_Details {
-	index := 0
+
+get_algebraic_notation_move_details :: proc(text: string) -> (Notation_Details, bool) {
 	text := strings.trim_space(text)
+	if len(text) == 0 do return Notation_Details{}, false
 
-	if text == "1-0" do return Notation_Details{winner = Piece_Color.White}
-	if text == "0-1" do return Notation_Details{winner = Piece_Color.Black}
-	if text == "1/2-1/2" do return Notation_Details{winner = Piece_Color.None}
+	index := 0
 
-	if strings.has_prefix(text, "O-O-O") do return Notation_Details{queen_side_castle = true}
-	if strings.has_prefix(text, "O-O") do return Notation_Details{king_side_castle = true}
+	if text == "1-0" do return Notation_Details{winner = Piece_Color.White, from_x = 9, from_y = 9}, true
+	if text == "0-1" do return Notation_Details{winner = Piece_Color.Black, from_x = 9, from_y = 9}, true
+	if text == "1/2-1/2" do return Notation_Details{winner = Piece_Color.None, from_x = 9, from_y = 9}, true
+
+	if strings.has_prefix(text, "O-O-O") || strings.has_prefix(text, "0-0-0") {
+		return Notation_Details{queen_side_castle = true, from_x = 9, from_y = 9}, true
+	}
+	if strings.has_prefix(text, "O-O") || strings.has_prefix(text, "0-0") {
+		return Notation_Details{king_side_castle = true, from_x = 9, from_y = 9}, true
+	}
 
 	first_char := text[index]
 	piece := General_Piece.Pawn
@@ -210,7 +217,11 @@ get_algebraic_notation_move_details :: proc(text: string) -> Notation_Details {
 	if index + 1 < len(text) {
 		to = get_square_from_notation(text[index], text[index + 1])
 		index += 2
+	} else {
+		return Notation_Details{}, false
 	}
+
+	if to == 0 do return Notation_Details{}, false
 
 	promotion := General_Piece.None
 	if index < len(text) && text[index] == '=' {
@@ -220,6 +231,8 @@ get_algebraic_notation_move_details :: proc(text: string) -> Notation_Details {
 			if white_piece == Piece.None do white_piece = Piece.White_Pawn
 			promotion = get_general_piece_from_piece(white_piece)
 			index += 1
+		} else {
+			return Notation_Details{}, false
 		}
 	}
 
@@ -231,20 +244,20 @@ get_algebraic_notation_move_details :: proc(text: string) -> Notation_Details {
 	}
 
 	return Notation_Details {
-		piece = piece,
-		from_x = from_x,
-		from_y = from_y,
-		to = to,
-		capturing = capturing,
-		check = check,
-		checkmate = checkmate,
-		promotion = promotion,
-		king_side_castle = false,
-		queen_side_castle = false,
-		winner = Piece_Color.None,
-	}
+			piece = piece,
+			from_x = from_x,
+			from_y = from_y,
+			to = to,
+			capturing = capturing,
+			check = check,
+			checkmate = checkmate,
+			promotion = promotion,
+			king_side_castle = false,
+			queen_side_castle = false,
+			winner = Piece_Color.None,
+		},
+		true
 }
-
 
 get_fen :: proc(board: ^Board, player: ^Piece_Color) -> string {
 	characters: [dynamic]u8

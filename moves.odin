@@ -4,6 +4,7 @@ Move :: struct {
 	from:      u64,
 	to:        u64,
 	capturing: bool,
+	promotion: General_Piece,
 }
 
 get_pawn_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {

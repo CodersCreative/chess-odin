@@ -163,10 +163,17 @@ square_occupied :: proc(bitboard: u64, square: u64) -> bool {
 	return (bitboard & square) != 0
 }
 
-process_algebraic_move :: proc(board: ^Board, player: Piece_Color, details: Notation_Details) {
+process_algebraic_move :: proc(
+	board: ^Board,
+	player: Piece_Color,
+	details: Notation_Details,
+) -> (
+	Move,
+	bool,
+) {
 	is_white := player == Piece_Color.White
 	specific_piece := get_piece_from_general_piece(details.piece, is_white)
-	if specific_piece == Piece.None do return
+	if specific_piece == Piece.None do return Move{}, false
 
 	pieces_bitboard: u64 = 0
 	switch specific_piece {
@@ -195,7 +202,7 @@ process_algebraic_move :: proc(board: ^Board, player: Piece_Color, details: Nota
 	case .Black_Knight:
 		pieces_bitboard = board.black_knights
 	case .None:
-		return
+		return Move{}, false
 	}
 
 	from: u64 = 0
@@ -223,20 +230,15 @@ process_algebraic_move :: proc(board: ^Board, player: Piece_Color, details: Nota
 		if found do break
 	}
 
-	if from == 0 do return
+	if from == 0 do return Move{}, false
 
-	force_move(board, Move{from = from, to = details.to, capturing = details.capturing})
-
-	if details.piece == General_Piece.Pawn &&
-	   details.promotion != General_Piece.Pawn &&
-	   details.promotion != General_Piece.Queen {
-
-		default_queen := is_white ? Piece.White_Queen : Piece.Black_Queen
-		promoted_piece := get_piece_from_general_piece(details.promotion, is_white)
-
-		do_action_to_bitboard(board, default_queen, -details.to)
-		do_action_to_bitboard(board, promoted_piece, details.to)
-	}
+	return Move {
+			from = from,
+			to = details.to,
+			capturing = details.capturing,
+			promotion = details.promotion,
+		},
+		true
 }
 
 do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
@@ -316,10 +318,22 @@ force_move :: proc(board: ^Board, move: Move) {
 
 	if piece == Piece.White_Pawn && move.to & PROMOTION_WHITE != 0 {
 		do_action_to_bitboard(board, piece, -move.to)
-		do_action_to_bitboard(board, Piece.White_Queen, move.to)
+
+		promotion := get_piece_from_general_piece(move.promotion, true)
+		do_action_to_bitboard(
+			board,
+			(promotion == Piece.None) ? Piece.White_Queen : promotion,
+			move.to,
+		)
 	} else if piece == Piece.Black_Pawn && move.to & PROMOTION_BLACK != 0 {
 		do_action_to_bitboard(board, piece, -move.to)
-		do_action_to_bitboard(board, Piece.Black_Queen, move.to)
+
+		promotion := get_piece_from_general_piece(move.promotion, false)
+		do_action_to_bitboard(
+			board,
+			(promotion == Piece.None) ? Piece.Black_Queen : promotion,
+			move.to,
+		)
 	} else if piece == Piece.White_King && board.castling & 0b00001111 != 0 {
 		if move.to == get_bitboard_square(6, 0) &&
 		   board.castling & WHITE_K_CASTLING_VALID == WHITE_K_CASTLING_VALID {
