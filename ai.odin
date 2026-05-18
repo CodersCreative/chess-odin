@@ -29,14 +29,22 @@ get_score :: proc(board: ^Board, player: Piece_Color) -> i64 {
 	return (white_score - black_score) * ((player == Piece_Color.Black) ? -1 : 1)
 }
 
-start_minimax :: proc(board: ^Board, depth: u8, player: Piece_Color) -> Move {
-	_, move := minimax(board, true, depth, player, bits.I64_MIN, bits.I64_MAX)
+Cache_Entry :: struct {
+	key:   u64,
+	depth: u8,
+	score: i64,
+	move:  Move,
+}
+
+TRANSPOSITION_TABLE: map[u64]Cache_Entry
+
+start_negamax :: proc(board: ^Board, depth: u8, player: Piece_Color) -> Move {
+	_, move := negamax(board, depth, player, bits.I64_MIN + 1, bits.I64_MAX - 1)
 	return move
 }
 
-minimax :: proc(
+negamax :: proc(
 	board: ^Board,
-	maximising: bool,
 	depth: u8,
 	player: Piece_Color,
 	alpha: i64,
@@ -45,23 +53,42 @@ minimax :: proc(
 	i64,
 	Move,
 ) {
+	player := player
+	zobrist_key := get_zobrist(board, &player)
+	if entry, exists := TRANSPOSITION_TABLE[zobrist_key]; exists && entry.depth >= depth {
+		return entry.score, entry.move
+	}
+
 	win, stalemate := check_win(board)
 	inverted_player := invert_color(player)
 
 	if win == player {
 		return 200 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player), Move{}
 	} else if win == inverted_player {
-		return -200 + cast(i64)depth + get_score(board, player), Move{}
+		return -200 + cast(i64)depth - get_score(board, inverted_player), Move{}
 	} else if depth <= 0 || stalemate {
-		return 0 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player), Move{}
+		return get_score(board, player) - get_score(board, inverted_player), Move{}
 	}
 
-	alpha := alpha
-	beta := beta
+	alpha_mutable := alpha
+	available_moves := get_all_moves_possible(board, player)
+	defer delete(available_moves)
 
-	available_moves := get_all_moves_possible(board, (maximising) ? player : inverted_player)
-	best_score: i64 = (maximising) ? bits.I64_MIN : bits.I64_MAX
-	best_move: Move = len(available_moves) == 0 ? Move{} : available_moves[0]
+	if len(available_moves) == 0 do return 0, Move{}
+
+
+	left := 0
+	for right := 0; right < len(available_moves); right += 1 {
+		if available_moves[right].capturing {
+			available_moves[left], available_moves[right] =
+				available_moves[right], available_moves[left]
+			left += 1
+		}
+	}
+
+
+	best_score: i64 = bits.I64_MIN
+	best_move := available_moves[0]
 
 	for move in available_moves {
 		target_piece := get_piece(board, move.to)
@@ -71,27 +98,29 @@ minimax :: proc(
 		full_move_clock := board.full_move_clock
 
 		force_move(board, move)
-		score, _ := minimax(board, !maximising, depth - 1, player, alpha, beta)
-		force_move(board, Move{from = move.to, to = move.from})
 
+		score, _ := negamax(board, depth - 1, inverted_player, -beta, -alpha_mutable)
+		score = -score
+
+		force_move(board, Move{from = move.to, to = move.from})
 		board.enpassant = en_passant
 		board.half_move_clock = half_move_clock
 		board.full_move_clock = full_move_clock
 
-		force_add_piece(board, target_piece, move.to)
-
-		if maximising {
-			best_score = max(best_score, score)
-			alpha = max(alpha, score)
-		} else {
-			best_score = min(best_score, score)
-			beta = min(beta, score)
+		if target_piece != Piece.None {
+			force_add_piece(board, target_piece, move.to)
 		}
 
-		if beta < alpha do break
+		if score > best_score {
+			best_score = score
+			best_move = move
+		}
 
-		if best_score == score do best_move = move
+		alpha_mutable = max(alpha_mutable, best_score)
+		if alpha_mutable >= beta do break
 	}
+
+	TRANSPOSITION_TABLE[zobrist_key] = Cache_Entry{zobrist_key, depth, best_score, best_move}
 
 	return best_score, best_move
 }

@@ -52,11 +52,35 @@ DEFAULT_BOARD :: Board {
 }
 
 display_bitboard :: proc(bitboard: u64) {
-	for y := 9; y > 0; y -= 1 {
+	for y := 7; y >= 0; y -= 1 {
 		for x in 0 ..< 8 {
 			fmt.printf("%d ", square_occupied(bitboard, get_bitboard_square(x, y)) ? 1 : 0)
 		}
 		fmt.print("\n")
+	}
+}
+
+display_pretty_bitboard :: proc(bitboard: u64) {
+	fmt.printfln("+----+----+----+----+----+----+----+----+----+")
+
+	for y := 9; y > 0; y -= 1 {
+		for x in 0 ..< 9 {
+
+			if y == 9 && x == 0 {
+				fmt.print("|    ")
+			} else if y == 9 {
+				fmt.printf("| %r  ", cast(rune)(96 + x))
+			} else if x == 0 {
+				fmt.printf("| %d  ", y)
+			} else {
+				fmt.printf(
+					"| %s ",
+					square_occupied(bitboard, get_bitboard_square(x - 1, y - 1)) ? "x " : "  ",
+				)
+			}
+		}
+		fmt.print("|\n")
+		fmt.printfln("+----+----+----+----+----+----+----+----+----+")
 	}
 }
 
@@ -402,7 +426,12 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 		if len(king_squares) == 0 do return moves
 		from := king_squares[0]
 
-		for to in to_positions do append(&moves, Move{from, to})
+		for to in to_positions {
+			append(
+				&moves,
+				Move{from = from, to = to, capturing = get_piece(board, to) != Piece.None},
+			)
+		}
 		return moves
 	}
 
@@ -414,7 +443,10 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 		cur_moves := get_moves(board, square, piece)
 
 		for pos in cur_moves {
-			append(&moves, Move{from = square, to = pos})
+			append(
+				&moves,
+				Move{from = square, to = pos, capturing = get_piece(board, pos) != Piece.None},
+			)
 		}
 
 	}

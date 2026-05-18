@@ -1,6 +1,7 @@
 package chess
 
 import "core:fmt"
+import "core:math/bits"
 import "core:os"
 import "core:strings"
 import "core:time"
@@ -59,9 +60,31 @@ handle_move_notation_input :: proc(
 	} else if strings.contains(str_move, "end") || strings.contains(str_move, "quit") {
 		player^ = Piece_Color.None
 		return Move{}
+	} else if strings.contains(str_move, "clear") {
+		clear()
+		display_board(board)
+		handle_move_notation_input(board, buffer, player, "")
 	}
 
+
+	str_move = strings.trim_space(str_move)
 	move, err := process_move(board, str_move)
+
+	if err != "" {
+		position := get_square_from_notation(str_move[0], str_move[1])
+		ones := bits.count_ones(position)
+		if ones != 1 do return handle_move_notation_input(board, buffer, player, err)
+		bitboard := get_moves_bitboard(get_moves(board, position)[:])
+		if bitboard == 0 do fmt.printfln("No Targets available for position %s", str_move)
+		else {
+			clear()
+			display_board(board)
+			fmt.printfln("Targets available for move %s", str_move)
+			display_pretty_bitboard(bitboard)
+			fmt.println("")
+		}
+		return handle_move_notation_input(board, buffer, player, "")
+	}
 
 	if err != "" do return handle_move_notation_input(board, buffer, player, err)
 
@@ -157,9 +180,13 @@ HistoryMove :: struct {
 	move:  Move,
 }
 
-main :: proc() {
+clear :: proc() {
+	fmt.print("\e[2J\e[H")
+}
+
+game_loop :: proc() {
 	for {
-		fmt.print("\e[2J\e[H")
+		clear()
 		board := DEFAULT_BOARD
 		history: [dynamic]HistoryMove
 		buffer: [100]byte
@@ -171,7 +198,7 @@ main :: proc() {
 		time.sleep(1 * time.Second)
 
 		for {
-			fmt.print("\e[2J\e[H")
+			clear()
 			display_board(&board)
 			display_history(history[:])
 			in_check := is_in_check(&board, player) || is_stalemate(&board)
@@ -209,7 +236,7 @@ main :: proc() {
 			if player == Piece_Color.White && is_player1_ai ||
 			   player == Piece_Color.Black && is_player2_ai {
 				start := time.tick_now()
-				move = start_minimax(&board, MINIMAX_DEPTH, player)
+				move = start_negamax(&board, MINIMAX_DEPTH, player)
 				duration := time.tick_diff(start, time.tick_now())
 
 				if duration < AI_MOVE_DURATION_SEC * time.Second {
@@ -232,5 +259,24 @@ main :: proc() {
 			player = invert_color(player)
 		}
 	}
+}
+
+uci_loop :: proc() {
+	// TODO Add UCI functionality
+	game_loop()
+}
+
+main :: proc() {
+	args := os.args
+
+	if len(args) > 1 {
+		action := args[1]
+		if action == "play" {
+			game_loop()
+			return
+		}
+	}
+
+	uci_loop()
 }
 

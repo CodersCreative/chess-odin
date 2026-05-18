@@ -1,8 +1,9 @@
 package chess
 
 Move :: struct {
-	from: u64,
-	to:   u64,
+	from:      u64,
+	to:        u64,
+	capturing: bool,
 }
 
 get_pawn_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
