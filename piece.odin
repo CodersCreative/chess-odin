@@ -1,5 +1,15 @@
 package chess
 
+General_Piece :: enum {
+	Pawn,
+	King,
+	Queen,
+	Rook,
+	Bishop,
+	Knight,
+	None,
+}
+
 Piece :: enum {
 	White_Pawn,
 	Black_Pawn,
@@ -153,5 +163,27 @@ piece_to_str :: proc(piece: Piece) -> string {
 	}
 
 	return "  "
+}
+
+
+get_general_piece_from_piece :: proc(piece: Piece) -> General_Piece {
+	switch piece {
+	case Piece.White_Pawn, Piece.Black_Pawn:
+		return General_Piece.Pawn
+	case Piece.White_King, Piece.Black_King:
+		return General_Piece.King
+	case Piece.White_Queen, Piece.Black_Queen:
+		return General_Piece.Queen
+	case Piece.White_Rook, Piece.Black_Rook:
+		return General_Piece.Rook
+	case Piece.White_Bishop, Piece.Black_Bishop:
+		return General_Piece.Bishop
+	case Piece.White_Knight, Piece.Black_Knight:
+		return General_Piece.Knight
+	case Piece.None:
+		return General_Piece.None
+	}
+
+	return General_Piece.None
 }
 

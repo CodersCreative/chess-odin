@@ -126,6 +126,75 @@ load_fen :: proc(board: ^Board, player: ^Piece_Color, fen: string) -> bool {
 	return true
 }
 
+
+Notation_Details :: struct {
+	piece:             General_Piece,
+	from_x:            u8,
+	from_y:            u8,
+	to:                u64,
+	capturing:         bool,
+	check:             bool,
+	checkmate:         bool,
+	promotion:         General_Piece,
+	king_side_castle:  bool,
+	queen_side_castle: bool,
+	winner:            Piece_Color,
+}
+
+get_algebraic_notation_move_details :: proc(text: string) -> Notation_Details {
+	index := 0
+
+	if text[index] == '1' && text[index + 2] == '0' do return Notation_Details{winner = Piece_Color.Black}
+
+	if text[index] == '0' {
+		index += 2
+		if text[index] == '1' do return Notation_Details{winner = Piece_Color.White}
+
+		index += 2
+
+		if len(text) > index && text[index] == '0' {
+			return Notation_Details{queen_side_castle = true}
+		} else {
+			return Notation_Details{king_side_castle = true}
+		}
+	}
+
+	white_piece := get_piece_from_fen_piece(text[index])
+	if white_piece == Piece.None do white_piece = Piece.White_Pawn
+	piece := get_general_piece_from_piece(white_piece)
+	index += 1
+
+	from_x := cast(int)text[index] - 97
+
+	if from_x >= 0 && from_x < 8 do index += 1
+	else do from_x = 0
+
+	from_y := cast(int)text[index] - 49
+
+	if from_y >= 0 && from_y < 8 do index += 1
+	else do from_y = 0
+
+	capturing := text[index] == 'x'
+	if capturing do index += 1
+
+	to := get_square_from_notation(text[index], text[index + 1])
+	index += 2
+
+	promotion := General_Piece.None
+	if text[index] == '=' {
+		index += 1
+		white_piece = get_piece_from_fen_piece(text[index])
+		if white_piece == Piece.None do white_piece = Piece.White_Pawn
+		promotion = get_general_piece_from_piece(white_piece)
+		index += 1
+	}
+
+	check := text[index] == '+'
+	checkmate := text[index] == '#'
+
+	return Notation_Details{piece = piece}
+}
+
 get_fen :: proc(board: ^Board, player: ^Piece_Color) -> string {
 	characters: [dynamic]u8
 	null_spaces: u8 = 0

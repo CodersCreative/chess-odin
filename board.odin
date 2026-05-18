@@ -162,6 +162,10 @@ square_occupied :: proc(bitboard: u64, square: u64) -> bool {
 	return (bitboard & square) != 0
 }
 
+process_algebraic_move :: proc(board: ^Board, player: Piece_Color, details: Notation_Details) {
+
+}
+
 do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
 	#partial switch piece {
 	case Piece.White_Pawn:
