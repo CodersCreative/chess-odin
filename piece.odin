@@ -165,7 +165,6 @@ piece_to_str :: proc(piece: Piece) -> string {
 	return "  "
 }
 
-
 get_general_piece_from_piece :: proc(piece: Piece) -> General_Piece {
 	switch piece {
 	case Piece.White_Pawn, Piece.Black_Pawn:
@@ -185,5 +184,26 @@ get_general_piece_from_piece :: proc(piece: Piece) -> General_Piece {
 	}
 
 	return General_Piece.None
+}
+
+get_piece_from_general_piece :: proc(piece: General_Piece, is_white: bool) -> Piece {
+	switch piece {
+	case General_Piece.Pawn:
+		return is_white ? Piece.White_Pawn : Piece.Black_Pawn
+	case General_Piece.King:
+		return is_white ? Piece.White_King : Piece.Black_King
+	case General_Piece.Queen:
+		return is_white ? Piece.White_Queen : Piece.Black_Queen
+	case General_Piece.Rook:
+		return is_white ? Piece.White_Rook : Piece.Black_Rook
+	case General_Piece.Bishop:
+		return is_white ? Piece.White_Bishop : Piece.Black_Bishop
+	case General_Piece.Knight:
+		return is_white ? Piece.White_Knight : Piece.Black_Knight
+	case General_Piece.None:
+		return Piece.None
+	}
+
+	return Piece.None
 }
 

@@ -143,57 +143,108 @@ Notation_Details :: struct {
 
 get_algebraic_notation_move_details :: proc(text: string) -> Notation_Details {
 	index := 0
+	text := strings.trim_space(text)
 
-	if text[index] == '1' && text[index + 2] == '0' do return Notation_Details{winner = Piece_Color.Black}
+	if text == "1-0" do return Notation_Details{winner = Piece_Color.White}
+	if text == "0-1" do return Notation_Details{winner = Piece_Color.Black}
+	if text == "1/2-1/2" do return Notation_Details{winner = Piece_Color.None}
 
-	if text[index] == '0' {
+	if strings.has_prefix(text, "O-O-O") do return Notation_Details{queen_side_castle = true}
+	if strings.has_prefix(text, "O-O") do return Notation_Details{king_side_castle = true}
+
+	first_char := text[index]
+	piece := General_Piece.Pawn
+
+	if first_char == 'N' ||
+	   first_char == 'B' ||
+	   first_char == 'R' ||
+	   first_char == 'Q' ||
+	   first_char == 'K' {
+		white_piece := get_piece_from_fen_piece(first_char)
+		piece = get_general_piece_from_piece(white_piece)
+		index += 1
+	}
+
+	from_x: u8 = 9
+	from_y: u8 = 9
+	capturing := false
+
+	for index < len(text) {
+		c := text[index]
+
+		if c == 'x' {
+			capturing = true
+			index += 1
+			continue
+		}
+
+		if c == '=' || c == '+' || c == '#' do break
+
+		if index + 1 < len(text) {
+			next_c := text[index + 1]
+			if next_c >= '1' && next_c <= '8' {
+				is_target := true
+				for k := index + 2; k < len(text); k += 1 {
+					rem := text[k]
+					if (rem >= 'a' && rem <= 'h') || rem == 'x' {
+						is_target = false
+						break
+					}
+				}
+
+				if is_target {
+					break
+				}
+			}
+		}
+
+		if c >= 'a' && c <= 'h' {
+			from_x = c - 'a'
+		} else if c >= '1' && c <= '8' {
+			from_y = c - '1'
+		}
+		index += 1
+	}
+
+	to: u64 = 0
+	if index + 1 < len(text) {
+		to = get_square_from_notation(text[index], text[index + 1])
 		index += 2
-		if text[index] == '1' do return Notation_Details{winner = Piece_Color.White}
+	}
 
-		index += 2
-
-		if len(text) > index && text[index] == '0' {
-			return Notation_Details{queen_side_castle = true}
-		} else {
-			return Notation_Details{king_side_castle = true}
+	promotion := General_Piece.None
+	if index < len(text) && text[index] == '=' {
+		index += 1
+		if index < len(text) {
+			white_piece := get_piece_from_fen_piece(text[index])
+			if white_piece == Piece.None do white_piece = Piece.White_Pawn
+			promotion = get_general_piece_from_piece(white_piece)
+			index += 1
 		}
 	}
 
-	white_piece := get_piece_from_fen_piece(text[index])
-	if white_piece == Piece.None do white_piece = Piece.White_Pawn
-	piece := get_general_piece_from_piece(white_piece)
-	index += 1
-
-	from_x := cast(int)text[index] - 97
-
-	if from_x >= 0 && from_x < 8 do index += 1
-	else do from_x = 0
-
-	from_y := cast(int)text[index] - 49
-
-	if from_y >= 0 && from_y < 8 do index += 1
-	else do from_y = 0
-
-	capturing := text[index] == 'x'
-	if capturing do index += 1
-
-	to := get_square_from_notation(text[index], text[index + 1])
-	index += 2
-
-	promotion := General_Piece.None
-	if text[index] == '=' {
-		index += 1
-		white_piece = get_piece_from_fen_piece(text[index])
-		if white_piece == Piece.None do white_piece = Piece.White_Pawn
-		promotion = get_general_piece_from_piece(white_piece)
-		index += 1
+	check := false
+	checkmate := false
+	if index < len(text) {
+		if text[index] == '+' do check = true
+		if text[index] == '#' do checkmate = true
 	}
 
-	check := text[index] == '+'
-	checkmate := text[index] == '#'
-
-	return Notation_Details{piece = piece}
+	return Notation_Details {
+		piece = piece,
+		from_x = from_x,
+		from_y = from_y,
+		to = to,
+		capturing = capturing,
+		check = check,
+		checkmate = checkmate,
+		promotion = promotion,
+		king_side_castle = false,
+		queen_side_castle = false,
+		winner = Piece_Color.None,
+	}
 }
+
 
 get_fen :: proc(board: ^Board, player: ^Piece_Color) -> string {
 	characters: [dynamic]u8

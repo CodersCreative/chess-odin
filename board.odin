@@ -88,14 +88,15 @@ get_bitboard_square :: proc(x: int, y: int) -> u64 {
 	return 1 << cast(u64)(y * 8 + x)
 }
 
+
 bitboard_to_squares :: proc(bitboard: u64) -> [dynamic]u64 {
 	squares := make([dynamic]u64)
-	temp_board := bitboard
+	bitboard := bitboard
 
-	for temp_board > 0 {
-		trailing_zeros := bits.count_trailing_zeros(temp_board)
-		append(&squares, cast(u64)trailing_zeros)
-		temp_board &= temp_board - 1
+	for bitboard > 0 {
+		lowest_bit_mask := bitboard & -bitboard
+		append(&squares, lowest_bit_mask)
+		bitboard &= bitboard - 1
 	}
 
 	return squares
@@ -163,7 +164,79 @@ square_occupied :: proc(bitboard: u64, square: u64) -> bool {
 }
 
 process_algebraic_move :: proc(board: ^Board, player: Piece_Color, details: Notation_Details) {
+	is_white := player == Piece_Color.White
+	specific_piece := get_piece_from_general_piece(details.piece, is_white)
+	if specific_piece == Piece.None do return
 
+	pieces_bitboard: u64 = 0
+	switch specific_piece {
+	case .White_Pawn:
+		pieces_bitboard = board.white_pawns
+	case .Black_Pawn:
+		pieces_bitboard = board.black_pawns
+	case .White_King:
+		pieces_bitboard = board.white_king
+	case .Black_King:
+		pieces_bitboard = board.black_king
+	case .White_Queen:
+		pieces_bitboard = board.white_queens
+	case .Black_Queen:
+		pieces_bitboard = board.black_queens
+	case .White_Rook:
+		pieces_bitboard = board.white_rooks
+	case .Black_Rook:
+		pieces_bitboard = board.black_rooks
+	case .White_Bishop:
+		pieces_bitboard = board.white_bishops
+	case .Black_Bishop:
+		pieces_bitboard = board.black_bishops
+	case .White_Knight:
+		pieces_bitboard = board.white_knights
+	case .Black_Knight:
+		pieces_bitboard = board.black_knights
+	case .None:
+		return
+	}
+
+	from: u64 = 0
+
+	candidate_squares := bitboard_to_squares(pieces_bitboard)
+	defer delete(candidate_squares)
+
+	for square in candidate_squares {
+		x, y := get_x_y_from_square(square)
+
+		if details.from_x != 9 && cast(int)details.from_x != x do continue
+		if details.from_y != 9 && cast(int)details.from_y != y do continue
+
+		moves := get_moves(board, square)
+		defer delete(moves)
+
+		found := false
+		for move in moves {
+			if move == details.to {
+				from = square
+				found = true
+				break
+			}
+		}
+		if found do break
+	}
+
+	if from == 0 do return
+
+	force_move(board, Move{from = from, to = details.to, capturing = details.capturing})
+
+	if details.piece == General_Piece.Pawn &&
+	   details.promotion != General_Piece.Pawn &&
+	   details.promotion != General_Piece.Queen {
+
+		default_queen := is_white ? Piece.White_Queen : Piece.Black_Queen
+		promoted_piece := get_piece_from_general_piece(details.promotion, is_white)
+
+		do_action_to_bitboard(board, default_queen, -details.to)
+		do_action_to_bitboard(board, promoted_piece, details.to)
+	}
 }
 
 do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
