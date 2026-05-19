@@ -195,80 +195,83 @@ clear :: proc(debug: bool = false) {
 	if !debug do fmt.print("\e[2J\e[H")
 }
 
-game_loop :: proc() {
+inner_game_loop :: proc() {
+	board := DEFAULT_BOARD
+	history: [dynamic]HistoryMove
+	buffer: [512]byte
+	player := Piece_Color.White
+	is_player1_ai, is_player2_ai := get_ai_players(buffer[:])
+	handle_fen(&board, &player, buffer[:])
+	handle_pgn(&board, &player, buffer[:])
+	fmt.println("The game can be restarted by inputting `end` or `quit` at any time.")
+	time.sleep(1 * time.Second)
+
 	for {
 		clear()
-		board := DEFAULT_BOARD
-		history: [dynamic]HistoryMove
-		buffer: [512]byte
-		player := Piece_Color.White
-		is_player1_ai, is_player2_ai := get_ai_players(buffer[:])
-		handle_fen(&board, &player, buffer[:])
-		handle_pgn(&board, &player, buffer[:])
-		fmt.println("The game can be restarted by inputting `end` or `quit` at any time.")
-		time.sleep(1 * time.Second)
+		display_board(&board)
+		display_history(history[:])
+		in_check := is_in_check(&board, player)
+		winner, stalemate := check_win(&board)
 
-		for {
-			clear()
-			display_board(&board)
-			display_history(history[:])
-			in_check := is_in_check(&board, player) || is_stalemate(&board)
-
-			#partial switch player {
-			case Piece_Color.Black:
-				fmt.println("Player : Black")
-			case Piece_Color.White:
-				fmt.println("Player : White")
-			}
-
-			if in_check {
-				winner, stalemate := check_win(&board)
-
-				switch winner {
-				case Piece_Color.White:
-					fmt.println("White Won!!!")
-					break
-				case Piece_Color.Black:
-					fmt.println("Black Won!!!")
-					break
-				case Piece_Color.None:
-					if stalemate {
-						fmt.println("Stalemate")
-						break
-					} else {
-						fmt.println("In Check - Protect your king.\n")
-					}
-
-				}
-
-			} else do fmt.println("")
-
-			move: Move
-			if player == Piece_Color.White && is_player1_ai ||
-			   player == Piece_Color.Black && is_player2_ai {
-				start := time.tick_now()
-				move = start_negamax(&board, MINIMAX_DEPTH, player)
-				duration := time.tick_diff(start, time.tick_now())
-
-				if duration < AI_MOVE_DURATION_SEC * time.Second {
-					time.sleep(AI_MOVE_DURATION_SEC * time.Second - duration)
-				}
-			} else {
-				move = handle_move_notation_input(&board, buffer[:], &player, "")
-			}
-
-			if player == Piece_Color.None {
-				fmt.println("Restart Requested. Please Wait...")
-				time.sleep(1 * time.Second)
-				break
-			}
-
-			piece := get_piece(&board, move.from)
-			append(&history, HistoryMove{piece, move})
-
-			force_move(&board, move)
-			player = invert_color(player)
+		#partial switch player {
+		case Piece_Color.Black:
+			fmt.println("Player : Black")
+		case Piece_Color.White:
+			fmt.println("Player : White")
 		}
+
+		if in_check || (stalemate || winner != Piece_Color.None) {
+			switch winner {
+			case Piece_Color.White:
+				fmt.println("White Won!!!")
+				return
+			case Piece_Color.Black:
+				fmt.println("Black Won!!!")
+				return
+			case Piece_Color.None:
+				if stalemate {
+					fmt.println("Stalemate")
+					return
+				} else {
+					fmt.println("In Check - Protect your king.\n")
+				}
+
+			}
+		} else do fmt.println("")
+
+		move: Move
+		if player == Piece_Color.White && is_player1_ai ||
+		   player == Piece_Color.Black && is_player2_ai {
+			start := time.tick_now()
+			move = start_negamax(&board, MINIMAX_DEPTH, player)
+			duration := time.tick_diff(start, time.tick_now())
+
+			if duration < AI_MOVE_DURATION_SEC * time.Second {
+				time.sleep(AI_MOVE_DURATION_SEC * time.Second - duration)
+			}
+		} else {
+			move = handle_move_notation_input(&board, buffer[:], &player, "")
+		}
+
+		if player == Piece_Color.None {
+			fmt.println("Restart Requested. Please Wait...")
+			time.sleep(1 * time.Second)
+			return
+		}
+
+		piece := get_piece(&board, move.from)
+		append(&history, HistoryMove{piece, move})
+
+		force_move(&board, move)
+		player = invert_color(player)
+	}
+}
+
+game_loop :: proc() {
+	clear()
+	for {
+		inner_game_loop()
+		time.sleep(3 * time.Second)
 	}
 }
 

@@ -517,8 +517,10 @@ is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
 }
 
 check_win :: proc(board: ^Board) -> (Piece_Color, bool) {
-	if is_checkmate(board, Piece_Color.Black) do return Piece_Color.White, true
-	else if is_checkmate(board, Piece_Color.White) do return Piece_Color.Black, true
+	if board.white_king == 0 do return Piece_Color.Black, false
+	else if board.black_king == 0 do return Piece_Color.White, false
+	else if is_checkmate(board, Piece_Color.Black) do return Piece_Color.White, false
+	else if is_checkmate(board, Piece_Color.White) do return Piece_Color.Black, false
 	else do return Piece_Color.None, is_stalemate(board)
 }
 
