@@ -172,6 +172,25 @@ process_algebraic_move :: proc(
 	bool,
 ) {
 	is_white := player == Piece_Color.White
+
+	if details.king_side_castle {
+		return Move {
+				from = is_white ? get_bitboard_square(4, 0) : get_bitboard_square(4, 7),
+				to = is_white ? get_bitboard_square(6, 0) : get_bitboard_square(6, 7),
+				capturing = false,
+				promotion = .None,
+			},
+			true
+	} else if details.queen_side_castle {
+		return Move {
+				from = is_white ? get_bitboard_square(4, 0) : get_bitboard_square(4, 7),
+				to = is_white ? get_bitboard_square(2, 0) : get_bitboard_square(2, 7),
+				capturing = false,
+				promotion = .None,
+			},
+			true
+	}
+
 	specific_piece := get_piece_from_general_piece(details.piece, is_white)
 	if specific_piece == Piece.None do return Move{}, false
 
@@ -297,11 +316,11 @@ force_move :: proc(board: ^Board, move: Move) {
 		if board.enpassant & (1 << cast(u16)(x + 8)) != 0 &&
 		   get_piece_color(piece) != Piece_Color.Black {
 			square := get_bitboard_square(x, y - 1)
-			do_action_to_bitboard(board, Piece.Black_Pawn, -square)
+			if get_piece(board, square) == Piece.Black_Pawn do do_action_to_bitboard(board, Piece.Black_Pawn, -square)
 		} else if board.enpassant & (1 << cast(u16)(x)) != 0 &&
 		   get_piece_color(piece) != Piece_Color.White {
 			square := get_bitboard_square(x, y + 1)
-			do_action_to_bitboard(board, Piece.White_Pawn, -square)
+			if get_piece(board, square) == Piece.White_Pawn do do_action_to_bitboard(board, Piece.White_Pawn, -square)
 		}
 
 		board.enpassant = 0

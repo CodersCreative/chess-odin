@@ -163,15 +163,18 @@ handle_pgn :: proc(board: ^Board, player: ^Piece_Color, buffer: []byte) {
 	str := string(buffer[:])
 	if strings.contains_any(str, "y") {
 		for true {
-			fmt.print("PGN path : ")
+			fmt.print("PGN : ")
 			os.read(os.stdin, buffer[:])
-			fen := string(buffer[:])
+			pgn := string(buffer[:])
 
-			if load_pgn(board, player, fen) {
+			if load_pgn_from_path(board, player, pgn) {
+				fmt.println("PGN successfully loaded!")
+				break
+			} else if load_pgn(board, player, pgn) {
 				fmt.println("PGN successfully loaded!")
 				break
 			} else {
-				fmt.println("Invalid PGN string entered, try again.")
+				fmt.println("Invalid PGN path/string entered, try again.")
 			}
 		}
 	}
@@ -188,8 +191,8 @@ HistoryMove :: struct {
 	move:  Move,
 }
 
-clear :: proc() {
-	fmt.print("\e[2J\e[H")
+clear :: proc(debug: bool = false) {
+	if !debug do fmt.print("\e[2J\e[H")
 }
 
 game_loop :: proc() {
@@ -197,7 +200,7 @@ game_loop :: proc() {
 		clear()
 		board := DEFAULT_BOARD
 		history: [dynamic]HistoryMove
-		buffer: [100]byte
+		buffer: [512]byte
 		player := Piece_Color.White
 		is_player1_ai, is_player2_ai := get_ai_players(buffer[:])
 		handle_fen(&board, &player, buffer[:])
