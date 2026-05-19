@@ -260,32 +260,63 @@ process_algebraic_move :: proc(
 		true
 }
 
-do_action_to_bitboard :: proc(board: ^Board, piece: Piece, raw_action: u64) {
-	#partial switch piece {
-	case Piece.White_Pawn:
-		board.white_pawns += raw_action
-	case Piece.Black_Pawn:
-		board.black_pawns += raw_action
-	case Piece.White_King:
-		board.white_king += raw_action
-	case Piece.Black_King:
-		board.black_king += raw_action
-	case Piece.White_Queen:
-		board.white_queens += raw_action
-	case Piece.Black_Queen:
-		board.black_queens += raw_action
-	case Piece.White_Rook:
-		board.white_rooks += raw_action
-	case Piece.Black_Rook:
-		board.black_rooks += raw_action
-	case Piece.White_Bishop:
-		board.white_bishops += raw_action
-	case Piece.Black_Bishop:
-		board.black_bishops += raw_action
-	case Piece.White_Knight:
-		board.white_knights += raw_action
-	case Piece.Black_Knight:
-		board.black_knights += raw_action
+do_action_to_bitboard :: proc(board: ^Board, action: Action) {
+	raw_action := action.action
+
+	if action.rev {
+		#partial switch action.piece {
+		case Piece.White_Pawn:
+			board.white_pawns -= raw_action
+		case Piece.Black_Pawn:
+			board.black_pawns -= raw_action
+		case Piece.White_King:
+			board.white_king -= raw_action
+		case Piece.Black_King:
+			board.black_king -= raw_action
+		case Piece.White_Queen:
+			board.white_queens -= raw_action
+		case Piece.Black_Queen:
+			board.black_queens -= raw_action
+		case Piece.White_Rook:
+			board.white_rooks -= raw_action
+		case Piece.Black_Rook:
+			board.black_rooks -= raw_action
+		case Piece.White_Bishop:
+			board.white_bishops -= raw_action
+		case Piece.Black_Bishop:
+			board.black_bishops -= raw_action
+		case Piece.White_Knight:
+			board.white_knights -= raw_action
+		case Piece.Black_Knight:
+			board.black_knights -= raw_action
+		}
+	} else {
+		#partial switch action.piece {
+		case Piece.White_Pawn:
+			board.white_pawns += raw_action
+		case Piece.Black_Pawn:
+			board.black_pawns += raw_action
+		case Piece.White_King:
+			board.white_king += raw_action
+		case Piece.Black_King:
+			board.black_king += raw_action
+		case Piece.White_Queen:
+			board.white_queens += raw_action
+		case Piece.Black_Queen:
+			board.black_queens += raw_action
+		case Piece.White_Rook:
+			board.white_rooks += raw_action
+		case Piece.Black_Rook:
+			board.black_rooks += raw_action
+		case Piece.White_Bishop:
+			board.white_bishops += raw_action
+		case Piece.Black_Bishop:
+			board.black_bishops += raw_action
+		case Piece.White_Knight:
+			board.white_knights += raw_action
+		case Piece.Black_Knight:
+			board.black_knights += raw_action
+		}
 	}
 }
 
@@ -295,7 +326,30 @@ ENPASSANT_BLACK: u64 : 0x000000FF00000000
 PROMOTION_WHITE: u64 : 0xFF00000000000000
 PROMOTION_BLACK: u64 : 0x00000000000000FF
 
-force_move :: proc(board: ^Board, move: Move) {
+Action :: struct {
+	piece:  Piece,
+	action: u64,
+	rev:    bool,
+}
+
+Actions :: struct {
+	actions:         [dynamic]Action,
+	enpassant:       u16,
+	castling:        u8,
+	half_move_clock: u8,
+	full_move_clock: u8,
+}
+
+do_and_append_action :: proc(board: ^Board, actions: ^Actions, action: Action) {
+	append(&actions.actions, action)
+	do_action_to_bitboard(board, action)
+}
+
+force_move :: proc(board: ^Board, move: Move) -> (actions: Actions) {
+	actions.castling = board.castling
+	actions.half_move_clock = board.half_move_clock
+	actions.full_move_clock = board.full_move_clock
+
 	piece := get_piece(board, move.from)
 	target_piece := get_piece(board, move.to)
 
@@ -316,57 +370,83 @@ force_move :: proc(board: ^Board, move: Move) {
 		if board.enpassant & (1 << cast(u16)(x + 8)) != 0 &&
 		   get_piece_color(piece) != Piece_Color.Black {
 			square := get_bitboard_square(x, y - 1)
-			if get_piece(board, square) == Piece.Black_Pawn do do_action_to_bitboard(board, Piece.Black_Pawn, -square)
+			if get_piece(board, square) == Piece.Black_Pawn do do_and_append_action(board, &actions, Action{piece = Piece.Black_Pawn, action = square, rev = true})
 		} else if board.enpassant & (1 << cast(u16)(x)) != 0 &&
 		   get_piece_color(piece) != Piece_Color.White {
 			square := get_bitboard_square(x, y + 1)
-			if get_piece(board, square) == Piece.White_Pawn do do_action_to_bitboard(board, Piece.White_Pawn, -square)
+			if get_piece(board, square) == Piece.White_Pawn do do_and_append_action(board, &actions, Action{piece = Piece.White_Pawn, action = square, rev = true})
 		}
 
 		board.enpassant = 0
 	}
 
-	do_action_to_bitboard(board, piece, move.to - move.from)
+	do_and_append_action(
+		board,
+		&actions,
+		Action {
+			piece = piece,
+			action = (move.to > move.from) ? move.to - move.from : move.from - move.to,
+			rev = !(move.to > move.from),
+		},
+	)
+
 	board.full_move_clock += 1
 
 	if target_piece != Piece.None {
 		board.half_move_clock = 0
-		do_action_to_bitboard(board, target_piece, -move.to)
+		do_and_append_action(
+			board,
+			&actions,
+			Action{piece = target_piece, action = move.to, rev = true},
+		)
 	} else if piece != Piece.White_Pawn && piece != Piece.Black_Pawn do board.half_move_clock += 1
 	else do board.half_move_clock = 0
 
 	if piece == Piece.White_Pawn && move.to & PROMOTION_WHITE != 0 {
-		do_action_to_bitboard(board, piece, -move.to)
+		do_and_append_action(board, &actions, Action{piece = piece, action = move.to, rev = true})
 
 		promotion := get_piece_from_general_piece(move.promotion, true)
-		do_action_to_bitboard(
+
+		do_and_append_action(
 			board,
-			(promotion == Piece.None) ? Piece.White_Queen : promotion,
-			move.to,
+			&actions,
+			Action {
+				piece = (promotion == Piece.None) ? Piece.White_Queen : promotion,
+				action = move.to,
+			},
 		)
 	} else if piece == Piece.Black_Pawn && move.to & PROMOTION_BLACK != 0 {
-		do_action_to_bitboard(board, piece, -move.to)
+		do_and_append_action(board, &actions, Action{piece = piece, action = move.to, rev = true})
 
 		promotion := get_piece_from_general_piece(move.promotion, false)
 		do_action_to_bitboard(
 			board,
-			(promotion == Piece.None) ? Piece.Black_Queen : promotion,
-			move.to,
+			Action {
+				piece = (promotion == Piece.None) ? Piece.Black_Queen : promotion,
+				action = move.to,
+			},
 		)
 	} else if piece == Piece.White_King && board.castling & 0b00001111 != 0 {
 		if move.to == get_bitboard_square(6, 0) &&
 		   board.castling & WHITE_K_CASTLING_VALID == WHITE_K_CASTLING_VALID {
-			do_action_to_bitboard(
+			do_and_append_action(
 				board,
-				Piece.White_Rook,
-				get_bitboard_square(5, 0) - get_bitboard_square(7, 0),
+				&actions,
+				Action {
+					piece = Piece.White_Rook,
+					action = get_bitboard_square(7, 0) - get_bitboard_square(5, 0),
+					rev = true,
+				},
 			)
 		} else if move.to == get_bitboard_square(2, 0) &&
 		   board.castling & WHITE_Q_CASTLING_VALID == WHITE_Q_CASTLING_VALID {
-			do_action_to_bitboard(
+			do_and_append_action(
 				board,
-				Piece.White_Rook,
-				get_bitboard_square(3, 0) - get_bitboard_square(0, 0),
+				&actions,
+				Action {
+					piece = Piece.White_Rook,
+					action = get_bitboard_square(3, 0) - get_bitboard_square(0, 0),
+				},
 			)
 		}
 
@@ -374,17 +454,24 @@ force_move :: proc(board: ^Board, move: Move) {
 	} else if piece == Piece.Black_King && board.castling & 0b11110000 != 0 {
 		if move.to == get_bitboard_square(6, 7) &&
 		   board.castling & BLACK_K_CASTLING_VALID == BLACK_K_CASTLING_VALID {
-			do_action_to_bitboard(
+			do_and_append_action(
 				board,
-				Piece.Black_Rook,
-				get_bitboard_square(5, 7) - get_bitboard_square(7, 7),
+				&actions,
+				Action {
+					piece = Piece.Black_Rook,
+					action = get_bitboard_square(7, 7) - get_bitboard_square(5, 7),
+					rev = true,
+				},
 			)
 		} else if move.to == get_bitboard_square(2, 7) &&
 		   board.castling & BLACK_Q_CASTLING_VALID == BLACK_Q_CASTLING_VALID {
-			do_action_to_bitboard(
+			do_and_append_action(
 				board,
-				Piece.Black_Rook,
-				get_bitboard_square(3, 7) - get_bitboard_square(0, 7),
+				&actions,
+				Action {
+					piece = Piece.Black_Rook,
+					action = get_bitboard_square(3, 7) - get_bitboard_square(0, 7),
+				},
 			)
 		}
 
@@ -403,10 +490,26 @@ force_move :: proc(board: ^Board, move: Move) {
 		}
 	}
 
+	return
 }
 
 force_add_piece :: proc(board: ^Board, piece: Piece, to: u64) {
-	if piece != Piece.None do do_action_to_bitboard(board, piece, to)
+	if piece != Piece.None do do_action_to_bitboard(board, Action{piece = piece, action = to})
+}
+
+force_undo :: proc(board: ^Board, actions: Actions) {
+	for i := (len(actions.actions) - 1); i >= 0; i -= 1 {
+		action := actions.actions[i]
+		do_action_to_bitboard(
+			board,
+			Action{piece = action.piece, action = action.action, rev = !action.rev},
+		)
+	}
+
+	board.castling = actions.castling
+	board.enpassant = actions.enpassant
+	board.half_move_clock = actions.half_move_clock
+	board.full_move_clock = actions.full_move_clock
 }
 
 move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {

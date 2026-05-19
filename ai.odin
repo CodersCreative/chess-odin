@@ -1,5 +1,7 @@
 package chess
+import "core:fmt"
 import "core:math/bits"
+import "core:time"
 
 
 PAWN_VALUE :: 10
@@ -93,23 +95,13 @@ negamax :: proc(
 	for move in available_moves {
 		target_piece := get_piece(board, move.to)
 
-		en_passant := board.enpassant
-		half_move_clock := board.half_move_clock
-		full_move_clock := board.full_move_clock
-
-		force_move(board, move)
+		actions := force_move(board, move)
+		defer delete(actions.actions)
 
 		score, _ := negamax(board, depth - 1, inverted_player, -beta, -alpha_mutable)
 		score = -score
 
-		force_move(board, Move{from = move.to, to = move.from})
-		board.enpassant = en_passant
-		board.half_move_clock = half_move_clock
-		board.full_move_clock = full_move_clock
-
-		if target_piece != Piece.None {
-			force_add_piece(board, target_piece, move.to)
-		}
+		force_undo(board, actions)
 
 		if score > best_score {
 			best_score = score

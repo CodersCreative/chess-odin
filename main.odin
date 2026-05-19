@@ -183,7 +183,7 @@ handle_pgn :: proc(board: ^Board, player: ^Piece_Color, buffer: []byte) {
 	time.sleep(1 * time.Second)
 }
 
-MINIMAX_DEPTH :: 3
+MINIMAX_DEPTH :: 4
 AI_MOVE_DURATION_SEC :: 1.0
 
 HistoryMove :: struct {
