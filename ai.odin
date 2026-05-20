@@ -1,6 +1,8 @@
 package chess
+import "core:container/avl"
 import "core:fmt"
 import "core:math/bits"
+import "core:slice"
 import "core:time"
 
 
@@ -31,6 +33,27 @@ get_score :: proc(board: ^Board, player: Piece_Color) -> i64 {
 	return (white_score - black_score) * ((player == Piece_Color.Black) ? -1 : 1)
 }
 
+get_value :: proc(piece: Piece) -> u8 {
+	switch piece {
+	case Piece.White_Pawn, Piece.Black_Pawn:
+		return PAWN_VALUE
+	case Piece.White_King, Piece.Black_King:
+		return KING_VALUE
+	case Piece.White_Queen, Piece.Black_Queen:
+		return QUEEN_VALUE
+	case Piece.White_Rook, Piece.Black_Rook:
+		return ROOK_VALUE
+	case Piece.White_Bishop, Piece.Black_Bishop:
+		return BISHOP_VALUE
+	case Piece.White_Knight, Piece.Black_Knight:
+		return KNIGHT_VALUE
+	case Piece.None:
+		return 0
+	}
+
+	return 0
+}
+
 Cache_Entry :: struct {
 	key:   u64,
 	depth: u8,
@@ -40,9 +63,94 @@ Cache_Entry :: struct {
 
 TRANSPOSITION_TABLE: map[u64]Cache_Entry
 
-start_negamax :: proc(board: ^Board, depth: u8, player: Piece_Color) -> Move {
-	_, move := negamax(board, depth, player, bits.I64_MIN + 1, bits.I64_MAX - 1)
-	return move
+start_negamax :: proc(board: ^Board, max_depth: u8, player: Piece_Color) -> Move {
+	best_move := Move{}
+	available_moves := get_all_moves_possible(board, player)
+	defer delete(available_moves)
+
+	if len(available_moves) == 0 do return Move{}
+
+	left := 0
+	for right := 0; right < len(available_moves); right += 1 {
+		if available_moves[right].capturing > available_moves[left].capturing {
+			available_moves[left], available_moves[right] =
+				available_moves[right], available_moves[left]
+			left += 1
+		}
+	}
+
+	start := time.tick_now()
+
+	for current_depth: u8 = 1; current_depth <= max_depth; current_depth += 1 {
+		move := initial_negamax(
+			board,
+			current_depth,
+			player,
+			bits.I64_MIN + 1,
+			bits.I64_MAX - 1,
+			&available_moves,
+		)
+
+		if move != (Move{}) {
+			best_move = move
+		}
+
+		if time.tick_diff(start, time.tick_now()) >= AI_MOVE_DURATION_SEC * time.Second {
+			break
+		}
+	}
+
+	return best_move
+}
+
+initial_negamax :: proc(
+	board: ^Board,
+	depth: u8,
+	player: Piece_Color,
+	alpha: i64,
+	beta: i64,
+	available_moves: ^[dynamic]Move,
+) -> Move {
+	player := player
+	inverted_player := invert_color(player)
+
+	best_score: i64 = bits.I64_MIN
+	best_move := available_moves[0]
+	alpha := alpha
+
+	scores := make([dynamic]i64, 0, len(available_moves), context.allocator)
+	defer delete(scores)
+
+	for i := 0; i < len(available_moves); i += 1 {
+		move := available_moves[i]
+		actions := force_move(board, move)
+
+		score, _ := negamax(board, depth - 1, inverted_player, -beta, -alpha)
+		score = -score
+		append(&scores, score)
+
+		force_undo(board, actions)
+		delete(actions.actions)
+
+		if score > best_score {
+			best_score = score
+			best_move = move
+		}
+
+		alpha = max(alpha, best_score)
+		if alpha >= beta do break
+		if i > 0 {
+			for x := i - 1; x >= 0; x -= 1 {
+				if scores[x] < scores[x + 1] {
+					available_moves[x], available_moves[x + 1] =
+						available_moves[x + 1], available_moves[x]
+				}
+			}
+		}
+
+	}
+
+	return best_move
 }
 
 negamax :: proc(
@@ -68,52 +176,87 @@ negamax :: proc(
 		return 200 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player), Move{}
 	} else if win == inverted_player {
 		return -200 + cast(i64)depth - get_score(board, inverted_player), Move{}
-	} else if depth <= 0 || stalemate {
+	} else if stalemate {
 		return get_score(board, player) - get_score(board, inverted_player), Move{}
+	} else if depth <= 0 {
+		score := quiescence(board, player, alpha, beta)
+		return score, Move{}
 	}
 
-	alpha_mutable := alpha
+	alpha := alpha
 	available_moves := get_all_moves_possible(board, player)
 	defer delete(available_moves)
 
 	if len(available_moves) == 0 do return 0, Move{}
 
-
 	left := 0
 	for right := 0; right < len(available_moves); right += 1 {
-		if available_moves[right].capturing {
+		if available_moves[right].capturing > available_moves[left].capturing {
 			available_moves[left], available_moves[right] =
 				available_moves[right], available_moves[left]
 			left += 1
 		}
 	}
 
-
 	best_score: i64 = bits.I64_MIN
 	best_move := available_moves[0]
 
 	for move in available_moves {
-		target_piece := get_piece(board, move.to)
-
 		actions := force_move(board, move)
-		defer delete(actions.actions)
 
-		score, _ := negamax(board, depth - 1, inverted_player, -beta, -alpha_mutable)
+		score, _ := negamax(board, depth - 1, inverted_player, -beta, -alpha)
 		score = -score
 
 		force_undo(board, actions)
+		delete(actions.actions)
 
 		if score > best_score {
 			best_score = score
 			best_move = move
 		}
 
-		alpha_mutable = max(alpha_mutable, best_score)
-		if alpha_mutable >= beta do break
+		alpha = max(alpha, best_score)
+		if alpha >= beta do break
 	}
 
 	TRANSPOSITION_TABLE[zobrist_key] = Cache_Entry{zobrist_key, depth, best_score, best_move}
 
 	return best_score, best_move
+}
+
+quiescence :: proc(board: ^Board, player: Piece_Color, alpha: i64, beta: i64) -> i64 {
+	inverted_player := invert_color(player)
+	baseline := get_score(board, player) - get_score(board, inverted_player)
+	alpha := alpha
+
+	if baseline >= beta do return beta
+	if baseline > alpha do alpha = baseline
+
+	available_moves := get_all_moves_possible(board, player)
+	defer delete(available_moves)
+
+	left := 0
+	for right := 0; right < len(available_moves); right += 1 {
+		if available_moves[right].capturing > available_moves[left].capturing {
+			available_moves[left], available_moves[right] =
+				available_moves[right], available_moves[left]
+			left += 1
+		}
+	}
+
+	for i := 0; i < left; i += 1 {
+		move := available_moves[i]
+		actions := force_move(board, move)
+
+		score := -quiescence(board, inverted_player, -beta, -alpha)
+
+		force_undo(board, actions)
+		delete(actions.actions)
+
+		if score >= beta do return beta
+		if score > alpha do alpha = score
+	}
+
+	return alpha
 }
 

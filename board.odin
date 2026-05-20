@@ -177,7 +177,7 @@ process_algebraic_move :: proc(
 		return Move {
 				from = is_white ? get_bitboard_square(4, 0) : get_bitboard_square(4, 7),
 				to = is_white ? get_bitboard_square(6, 0) : get_bitboard_square(6, 7),
-				capturing = false,
+				capturing = 0,
 				promotion = .None,
 			},
 			true
@@ -185,7 +185,7 @@ process_algebraic_move :: proc(
 		return Move {
 				from = is_white ? get_bitboard_square(4, 0) : get_bitboard_square(4, 7),
 				to = is_white ? get_bitboard_square(2, 0) : get_bitboard_square(2, 7),
-				capturing = false,
+				capturing = 0,
 				promotion = .None,
 			},
 			true
@@ -254,7 +254,7 @@ process_algebraic_move :: proc(
 	return Move {
 			from = from,
 			to = details.to,
-			capturing = details.capturing,
+			capturing = get_value(get_piece(board, details.to)),
 			promotion = details.promotion,
 		},
 		true
@@ -642,10 +642,7 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 		from := king_squares[0]
 
 		for to in to_positions {
-			append(
-				&moves,
-				Move{from = from, to = to, capturing = get_piece(board, to) != Piece.None},
-			)
+			append(&moves, Move{from = from, to = to, capturing = get_value(get_piece(board, to))})
 		}
 		return moves
 	}
@@ -660,7 +657,7 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 		for pos in cur_moves {
 			append(
 				&moves,
-				Move{from = square, to = pos, capturing = get_piece(board, pos) != Piece.None},
+				Move{from = square, to = pos, capturing = get_value(get_piece(board, pos))},
 			)
 		}
 

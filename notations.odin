@@ -477,7 +477,7 @@ init_zobrist :: proc() {
 	ZOBRIST_INIT = true
 }
 
-get_zobrist :: proc(board: ^Board, player: ^Piece_Color) -> u64 {
+get_zobrist :: proc(board: ^Board, player: ^Piece_Color, depth: u64 = 0) -> u64 {
 	if !ZOBRIST_INIT do init_zobrist()
 
 	hash: u64 = 0
@@ -497,6 +497,10 @@ get_zobrist :: proc(board: ^Board, player: ^Piece_Color) -> u64 {
 
 	if player^ == Piece_Color.Black {
 		hash ~= ZOBRIST_PLAYER
+	}
+
+	if depth != 0 {
+		hash ~= depth
 	}
 
 	return hash
