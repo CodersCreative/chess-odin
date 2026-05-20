@@ -1,0 +1,198 @@
+package chess
+
+import "core:math"
+import "core:math/bits"
+SCORE_ZERO_VALUE: u64 : 0x64
+
+PAWN_START :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+PAWN_END :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+KING_START :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+KING_END :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+QUEEN_START :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+QUEEN_END :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+ROOK_START :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+ROOK_END :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+BISHOP_START :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+BISHOP_END :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+KNIGHT_START :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+KNIGHT_END :: [8]u64 {
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+	0x6464646464646464,
+}
+
+END_MOVE_START :: 30
+
+get_positional_score :: proc(piece: Piece, square: u64, full_move: u8) -> i16 {
+	is_white := get_piece_color(piece) == Piece_Color.White
+
+	switch piece {
+
+	case Piece.White_Pawn, Piece.Black_Pawn:
+		return get_positional_score_with_values(is_white, square, full_move, PAWN_START, PAWN_END)
+	case Piece.White_King, Piece.Black_King:
+		return get_positional_score_with_values(is_white, square, full_move, KING_START, KING_END)
+	case Piece.White_Queen, Piece.Black_Queen:
+		return get_positional_score_with_values(
+			is_white,
+			square,
+			full_move,
+			QUEEN_START,
+			QUEEN_END,
+		)
+	case Piece.White_Rook, Piece.Black_Rook:
+		return get_positional_score_with_values(is_white, square, full_move, ROOK_START, ROOK_END)
+	case Piece.White_Bishop, Piece.Black_Bishop:
+		return get_positional_score_with_values(
+			is_white,
+			square,
+			full_move,
+			BISHOP_START,
+			BISHOP_END,
+		)
+	case Piece.White_Knight, Piece.Black_Knight:
+		return get_positional_score_with_values(
+			is_white,
+			square,
+			full_move,
+			KNIGHT_START,
+			KNIGHT_END,
+		)
+	case Piece.None:
+		return 0
+	}
+	return 0
+}
+
+get_positional_score_with_values :: proc(
+	is_white: bool,
+	square: u64,
+	full_move: u8,
+	start: [8]u64,
+	end: [8]u64,
+) -> i16 {
+	x, y := get_x_y_from_square(square)
+	if !is_white do y = 7 - y
+
+	start_value: f16 = cast(f16)((start[y] >> ((8 - cast(u64)x) * 8) & 0xFF) - SCORE_ZERO_VALUE)
+	end_value: f16 = cast(f16)((end[y] >> ((8 - cast(u64)x) * 8) & 0xFF) - SCORE_ZERO_VALUE)
+	value := math.lerp(start_value, end_value, cast(f16)min(1, full_move / END_MOVE_START))
+
+	return cast(i16)value
+}
+

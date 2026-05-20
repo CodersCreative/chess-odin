@@ -96,6 +96,8 @@ start_negamax :: proc(board: ^Board, max_depth: u8, player: Piece_Color) -> Move
 		}
 
 		if time.tick_diff(start, time.tick_now()) >= AI_MOVE_DURATION_SEC * time.Second {
+			fmt.println(current_depth)
+			time.sleep(time.Second)
 			break
 		}
 	}
@@ -125,7 +127,7 @@ initial_negamax :: proc(
 		move := available_moves[i]
 		actions := force_move(board, move)
 
-		score, _ := negamax(board, depth - 1, inverted_player, -beta, -alpha)
+		score := negamax(board, depth - 1, inverted_player, -beta, -alpha)
 		score = -score
 		append(&scores, score)
 
@@ -153,41 +155,32 @@ initial_negamax :: proc(
 	return best_move
 }
 
-negamax :: proc(
-	board: ^Board,
-	depth: u8,
-	player: Piece_Color,
-	alpha: i64,
-	beta: i64,
-) -> (
-	i64,
-	Move,
-) {
+negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta: i64) -> i64 {
 	player := player
 	zobrist_key := get_zobrist(board, &player)
 	if entry, exists := TRANSPOSITION_TABLE[zobrist_key]; exists && entry.depth >= depth {
-		return entry.score, entry.move
+		return entry.score
 	}
 
 	win, stalemate := check_win(board)
 	inverted_player := invert_color(player)
 
 	if win == player {
-		return 200 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player), Move{}
+		return 200 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player)
 	} else if win == inverted_player {
-		return -200 + cast(i64)depth - get_score(board, inverted_player), Move{}
+		return -200 + cast(i64)depth - get_score(board, inverted_player)
 	} else if stalemate {
-		return get_score(board, player) - get_score(board, inverted_player), Move{}
+		return get_score(board, player) - get_score(board, inverted_player)
 	} else if depth <= 0 {
 		score := quiescence(board, player, alpha, beta)
-		return score, Move{}
+		return score
 	}
 
 	alpha := alpha
 	available_moves := get_all_moves_possible(board, player)
 	defer delete(available_moves)
 
-	if len(available_moves) == 0 do return 0, Move{}
+	if len(available_moves) == 0 do return 0
 
 	left := 0
 	for right := 0; right < len(available_moves); right += 1 {
@@ -204,8 +197,7 @@ negamax :: proc(
 	for move in available_moves {
 		actions := force_move(board, move)
 
-		score, _ := negamax(board, depth - 1, inverted_player, -beta, -alpha)
-		score = -score
+		score := -negamax(board, depth - 1, inverted_player, -beta, -alpha)
 
 		force_undo(board, actions)
 		delete(actions.actions)
@@ -221,7 +213,7 @@ negamax :: proc(
 
 	TRANSPOSITION_TABLE[zobrist_key] = Cache_Entry{zobrist_key, depth, best_score, best_move}
 
-	return best_score, best_move
+	return best_score
 }
 
 quiescence :: proc(board: ^Board, player: Piece_Color, alpha: i64, beta: i64) -> i64 {
