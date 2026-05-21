@@ -3,7 +3,7 @@ package chess
 Move :: struct {
 	from:      u64,
 	to:        u64,
-	capturing: u8,
+	capturing: u16,
 	promotion: General_Piece,
 }
 

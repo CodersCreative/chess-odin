@@ -5,13 +5,22 @@ import "core:math/bits"
 import "core:slice"
 import "core:time"
 
+PAWN_VALUE :: 100
+KNIGHT_VALUE :: 320
+BISHOP_VALUE :: 330
+ROOK_VALUE :: 500
+QUEEN_VALUE :: 900
+KING_VALUE :: 1800
 
-PAWN_VALUE :: 10
-KNIGHT_VALUE :: 30
-BISHOP_VALUE :: 30
-ROOK_VALUE :: 50
-QUEEN_VALUE :: 90
-KING_VALUE :: 180
+get_piece_score_with_positional :: proc(board: ^Board, bitboard: u64, piece: Piece) -> i64 {
+	score: i64 = 0
+	squares := bitboard_to_squares(bitboard)
+
+	for square in squares {
+		score += cast(i64)get_positional_score(piece, square, board.full_move_clock)
+	}
+	return score
+}
 
 get_score :: proc(board: ^Board, player: Piece_Color) -> i64 {
 	black_score :=
@@ -20,7 +29,13 @@ get_score :: proc(board: ^Board, player: Piece_Color) -> i64 {
 		cast(i64)count_bitboard_pieces(board.black_king) * KING_VALUE +
 		cast(i64)count_bitboard_pieces(board.black_pawns) * PAWN_VALUE +
 		cast(i64)count_bitboard_pieces(board.black_queens) * QUEEN_VALUE +
-		cast(i64)count_bitboard_pieces(board.black_rooks) * ROOK_VALUE
+		cast(i64)count_bitboard_pieces(board.black_rooks) * ROOK_VALUE +
+		get_piece_score_with_positional(board, board.black_bishops, Piece.Black_Bishop) +
+		get_piece_score_with_positional(board, board.black_knights, Piece.Black_Knight) +
+		get_piece_score_with_positional(board, board.black_king, Piece.Black_King) +
+		get_piece_score_with_positional(board, board.black_pawns, Piece.Black_Pawn) +
+		get_piece_score_with_positional(board, board.black_queens, Piece.Black_Queen) +
+		get_piece_score_with_positional(board, board.black_rooks, Piece.Black_Rook)
 
 	white_score :=
 		cast(i64)count_bitboard_pieces(board.white_bishops) * BISHOP_VALUE +
@@ -28,12 +43,18 @@ get_score :: proc(board: ^Board, player: Piece_Color) -> i64 {
 		cast(i64)count_bitboard_pieces(board.white_king) * KING_VALUE +
 		cast(i64)count_bitboard_pieces(board.white_pawns) * PAWN_VALUE +
 		cast(i64)count_bitboard_pieces(board.white_queens) * QUEEN_VALUE +
-		cast(i64)count_bitboard_pieces(board.white_rooks) * ROOK_VALUE
+		cast(i64)count_bitboard_pieces(board.white_rooks) * ROOK_VALUE +
+		get_piece_score_with_positional(board, board.white_bishops, Piece.White_Bishop) +
+		get_piece_score_with_positional(board, board.white_knights, Piece.White_Knight) +
+		get_piece_score_with_positional(board, board.white_king, Piece.White_King) +
+		get_piece_score_with_positional(board, board.white_pawns, Piece.White_Pawn) +
+		get_piece_score_with_positional(board, board.white_queens, Piece.White_Queen) +
+		get_piece_score_with_positional(board, board.white_rooks, Piece.White_Rook)
 
 	return (white_score - black_score) * ((player == Piece_Color.Black) ? -1 : 1)
 }
 
-get_value :: proc(piece: Piece) -> u8 {
+get_value :: proc(piece: Piece) -> u16 {
 	switch piece {
 	case Piece.White_Pawn, Piece.Black_Pawn:
 		return PAWN_VALUE
@@ -166,9 +187,9 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 	inverted_player := invert_color(player)
 
 	if win == player {
-		return 200 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player)
+		return 1800 - (MINIMAX_DEPTH - cast(i64)depth) + get_score(board, player)
 	} else if win == inverted_player {
-		return -200 + cast(i64)depth - get_score(board, inverted_player)
+		return -1800 + cast(i64)depth - get_score(board, inverted_player)
 	} else if stalemate {
 		return get_score(board, player) - get_score(board, inverted_player)
 	} else if depth <= 0 {
