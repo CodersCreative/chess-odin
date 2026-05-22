@@ -594,17 +594,15 @@ get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64
 
 	#partial switch player {
 	case Piece_Color.Black:
-		black_king_squares := bitboard_to_squares(board.black_king)
-		if len(black_king_squares) == 0 do return valid_moves
-		moves := get_moves(board, black_king_squares[0], Piece.Black_King)
+		if board.black_king == 0 do return valid_moves
+		moves := get_moves(board, board.black_king, Piece.Black_King)
 
 		for move in moves {
 			if len(move_possible(board, move, Piece_Color.White)) == 0 do append(&valid_moves, move)
 		}
 	case Piece_Color.White:
-		white_king_squares := bitboard_to_squares(board.white_king)
-		if len(white_king_squares) == 0 do return valid_moves
-		moves := get_moves(board, white_king_squares[0], Piece.White_King)
+		if board.white_king == 0 do return valid_moves
+		moves := get_moves(board, board.white_king, Piece.White_King)
 
 		for move in moves {
 			if len(move_possible(board, move, Piece_Color.Black)) == 0 do append(&valid_moves, move)
@@ -616,7 +614,46 @@ get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64
 
 is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
 	if !is_in_check(board, player) do return false
-	return len(get_valid_king_moves(board, player)) == 0
+	is_checkmate := len(get_valid_king_moves(board, player)) == 0
+
+	if is_checkmate {
+		pieces := bitboard_to_squares(get_total_bitboard(board, player))		
+		opposite_pieces := bitboard_to_squares(get_total_bitboard(board, invert_color(player)))
+		able_to_remove := 0
+
+		for square in opposite_pieces {
+			moves := get_moves(board, square)
+			attack := false
+
+			for move in moves {
+				if move & ((player == Piece_Color.Black) ? board.black_king : board.white_king) != 0 {
+					attack := true
+					break
+				}
+			}
+
+			if attack {
+				can_remove := false
+
+				for square in opposite_pieces {
+					moves = get_moves(board, square)
+
+					for move in moves {
+						if move & square != 0 {
+							able_to_remove += 1
+							if able_to_remove > 1 do return true
+							can_remove := true
+							break
+						}
+					}
+				}
+
+				if !can_remove do return true
+			}
+		}
+	}
+
+	return is_checkmate
 }
 
 check_win :: proc(board: ^Board) -> (Piece_Color, bool) {
