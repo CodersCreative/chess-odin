@@ -119,27 +119,47 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		if board.castling & BLACK_K_CASTLING_VALID == BLACK_K_CASTLING_VALID &&
 		   !piece_exists(board, get_bitboard_square(6, 7)) &&
 		   !piece_exists(board, get_bitboard_square(5, 7)) {
-			append(&moves, get_bitboard_square(6, 7))
+			king_square := board.black_king
+			if !is_in_check(board, Piece_Color.Black) &&
+			   len(move_possible(board, get_bitboard_square(5, 7), Piece_Color.White)) == 0 &&
+			   len(move_possible(board, get_bitboard_square(6, 7), Piece_Color.White)) == 0 {
+				append(&moves, get_bitboard_square(6, 7))
+			}
 		}
 
 		if board.castling & BLACK_Q_CASTLING_VALID == BLACK_Q_CASTLING_VALID &&
 		   !piece_exists(board, get_bitboard_square(1, 7)) &&
 		   !piece_exists(board, get_bitboard_square(2, 7)) &&
 		   !piece_exists(board, get_bitboard_square(3, 7)) {
-			append(&moves, get_bitboard_square(2, 7))
+			king_square := board.black_king
+			if !is_in_check(board, Piece_Color.Black) &&
+			   len(move_possible(board, get_bitboard_square(3, 7), Piece_Color.White)) == 0 &&
+			   len(move_possible(board, get_bitboard_square(2, 7), Piece_Color.White)) == 0 {
+				append(&moves, get_bitboard_square(2, 7))
+			}
 		}
 	} else if color == Piece_Color.White {
 		if board.castling & WHITE_K_CASTLING_VALID == WHITE_K_CASTLING_VALID &&
 		   !piece_exists(board, get_bitboard_square(6, 0)) &&
 		   !piece_exists(board, get_bitboard_square(5, 0)) {
-			append(&moves, get_bitboard_square(6, 0))
+			king_square := board.white_king
+			if !is_in_check(board, Piece_Color.White) &&
+			   len(move_possible(board, get_bitboard_square(5, 0), Piece_Color.Black)) == 0 &&
+			   len(move_possible(board, get_bitboard_square(6, 0), Piece_Color.Black)) == 0 {
+				append(&moves, get_bitboard_square(6, 0))
+			}
 		}
 
 		if board.castling & WHITE_Q_CASTLING_VALID == WHITE_Q_CASTLING_VALID &&
 		   !piece_exists(board, get_bitboard_square(1, 0)) &&
 		   !piece_exists(board, get_bitboard_square(2, 0)) &&
 		   !piece_exists(board, get_bitboard_square(3, 0)) {
-			append(&moves, get_bitboard_square(2, 0))
+			king_square := board.white_king
+			if !is_in_check(board, Piece_Color.White) &&
+			   len(move_possible(board, get_bitboard_square(3, 0), Piece_Color.Black)) == 0 &&
+			   len(move_possible(board, get_bitboard_square(2, 0), Piece_Color.Black)) == 0 {
+				append(&moves, get_bitboard_square(2, 0))
+			}
 		}
 	}
 

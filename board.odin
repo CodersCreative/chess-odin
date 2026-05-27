@@ -612,48 +612,33 @@ get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64
 	return valid_moves
 }
 
+is_move_legal :: proc(board: ^Board, from: u64, to: u64, player: Piece_Color) -> bool {
+	actions := force_move(board, Move{from = from, to = to, capturing = get_value(get_piece(board, to))})
+	
+	in_check := is_in_check(board, player)
+	
+	force_undo(board, actions)
+	
+	return !in_check
+}
+
 is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
 	if !is_in_check(board, player) do return false
-	is_checkmate := len(get_valid_king_moves(board, player)) == 0
-
-	if is_checkmate {
-		pieces := bitboard_to_squares(get_total_bitboard(board, player))		
-		opposite_pieces := bitboard_to_squares(get_total_bitboard(board, invert_color(player)))
-		able_to_remove := 0
-
-		for square in opposite_pieces {
-			moves := get_moves(board, square)
-			attack := false
-
-			for move in moves {
-				if move & ((player == Piece_Color.Black) ? board.black_king : board.white_king) != 0 {
-					attack := true
-					break
-				}
-			}
-
-			if attack {
-				can_remove := false
-
-				for square in opposite_pieces {
-					moves = get_moves(board, square)
-
-					for move in moves {
-						if move & square != 0 {
-							able_to_remove += 1
-							if able_to_remove > 1 do return true
-							can_remove := true
-							break
-						}
-					}
-				}
-
-				if !can_remove do return true
-			}
+	
+	pieces := get_all_player_pieces(board, player)
+	
+	for square in pieces {
+		piece := get_piece(board, square)
+		if get_piece_color(piece) != player do continue
+		
+		moves := get_moves(board, square, piece)
+		
+		for move in moves {
+			if is_move_legal(board, square, move, player) do return false
 		}
 	}
-
-	return is_checkmate
+	
+	return true
 }
 
 check_win :: proc(board: ^Board) -> (Piece_Color, bool) {
@@ -670,20 +655,6 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 
 	moves: [dynamic]Move
 
-	if is_in_check(board, player) {
-		to_positions := get_valid_king_moves(board, player)
-		king_squares := bitboard_to_squares(
-			(player == Piece_Color.Black) ? board.black_king : board.white_king,
-		)
-		if len(king_squares) == 0 do return moves
-		from := king_squares[0]
-
-		for to in to_positions {
-			append(&moves, Move{from = from, to = to, capturing = get_value(get_piece(board, to))})
-		}
-		return moves
-	}
-
 	pieces := get_all_player_pieces(board, player)
 	for square in pieces {
 		piece := get_piece(board, square)
@@ -692,10 +663,12 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 		cur_moves := get_moves(board, square, piece)
 
 		for pos in cur_moves {
-			append(
-				&moves,
-				Move{from = square, to = pos, capturing = get_value(get_piece(board, pos))},
-			)
+			if is_move_legal(board, square, pos, player) {
+				append(
+					&moves,
+					Move{from = square, to = pos, capturing = get_value(get_piece(board, pos))},
+				)
+			}
 		}
 
 	}
