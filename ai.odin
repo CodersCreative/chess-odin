@@ -15,6 +15,7 @@ KING_VALUE :: 1800
 get_piece_score_with_positional :: proc(board: ^Board, bitboard: u64, piece: Piece) -> i64 {
 	score: i64 = 0
 	squares := bitboard_to_squares(bitboard)
+	defer delete(squares)
 
 	for square in squares {
 		score += cast(i64)get_positional_score(piece, square, board.full_move_clock)

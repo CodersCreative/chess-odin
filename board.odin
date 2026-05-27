@@ -515,12 +515,14 @@ force_undo :: proc(board: ^Board, actions: Actions) {
 move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
 	froms := make([dynamic]u64)
 	pieces := get_all_player_pieces(board, by)
+	defer delete(pieces)
 
 	for square in pieces {
 		piece := get_piece(board, square)
 		if get_piece_color(piece) != by do continue
 
 		moves := get_moves(board, square, piece)
+		defer delete(moves)
 
 		for target in moves {
 			if target == to do append(&froms, square)
@@ -578,12 +580,18 @@ is_in_check :: proc(board: ^Board, player: Piece_Color) -> bool {
 	#partial switch player {
 	case Piece_Color.Black:
 		black_king_squares := bitboard_to_squares(board.black_king)
+		defer delete(black_king_squares)
 		if len(black_king_squares) == 0 do return false
-		return len(move_possible(board, black_king_squares[0], Piece_Color.White)) != 0
+		attackers := move_possible(board, black_king_squares[0], Piece_Color.White)
+		defer delete(attackers)
+		return len(attackers) != 0
 	case Piece_Color.White:
 		white_king_squares := bitboard_to_squares(board.white_king)
+		defer delete(white_king_squares)
 		if len(white_king_squares) == 0 do return false
-		return len(move_possible(board, white_king_squares[0], Piece_Color.Black)) != 0
+		attackers := move_possible(board, white_king_squares[0], Piece_Color.Black)
+		defer delete(attackers)
+		return len(attackers) != 0
 	}
 
 	return false
@@ -596,16 +604,22 @@ get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64
 	case Piece_Color.Black:
 		if board.black_king == 0 do return valid_moves
 		moves := get_moves(board, board.black_king, Piece.Black_King)
+		defer delete(moves)
 
 		for move in moves {
-			if len(move_possible(board, move, Piece_Color.White)) == 0 do append(&valid_moves, move)
+			attackers := move_possible(board, move, Piece_Color.White)
+			defer delete(attackers)
+			if len(attackers) == 0 do append(&valid_moves, move)
 		}
 	case Piece_Color.White:
 		if board.white_king == 0 do return valid_moves
 		moves := get_moves(board, board.white_king, Piece.White_King)
+		defer delete(moves)
 
 		for move in moves {
-			if len(move_possible(board, move, Piece_Color.Black)) == 0 do append(&valid_moves, move)
+			attackers := move_possible(board, move, Piece_Color.Black)
+			defer delete(attackers)
+			if len(attackers) == 0 do append(&valid_moves, move)
 		}
 	}
 
@@ -626,12 +640,14 @@ is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
 	if !is_in_check(board, player) do return false
 	
 	pieces := get_all_player_pieces(board, player)
+	defer delete(pieces)
 	
 	for square in pieces {
 		piece := get_piece(board, square)
 		if get_piece_color(piece) != player do continue
 		
 		moves := get_moves(board, square, piece)
+		defer delete(moves)
 		
 		for move in moves {
 			if is_move_legal(board, square, move, player) do return false
@@ -656,11 +672,13 @@ get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]M
 	moves: [dynamic]Move
 
 	pieces := get_all_player_pieces(board, player)
+	defer delete(pieces)
 	for square in pieces {
 		piece := get_piece(board, square)
 		if get_piece_color(piece) != player do continue
 
 		cur_moves := get_moves(board, square, piece)
+		defer delete(cur_moves)
 
 		for pos in cur_moves {
 			if is_move_legal(board, square, pos, player) {

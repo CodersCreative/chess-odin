@@ -120,10 +120,14 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(6, 7)) &&
 		   !piece_exists(board, get_bitboard_square(5, 7)) {
 			king_square := board.black_king
-			if !is_in_check(board, Piece_Color.Black) &&
-			   len(move_possible(board, get_bitboard_square(5, 7), Piece_Color.White)) == 0 &&
-			   len(move_possible(board, get_bitboard_square(6, 7), Piece_Color.White)) == 0 {
-				append(&moves, get_bitboard_square(6, 7))
+			if !is_in_check(board, Piece_Color.Black) {
+				attackers1 := move_possible(board, get_bitboard_square(5, 7), Piece_Color.White)
+				defer delete(attackers1)
+				attackers2 := move_possible(board, get_bitboard_square(6, 7), Piece_Color.White)
+				defer delete(attackers2)
+				if len(attackers1) == 0 && len(attackers2) == 0 {
+					append(&moves, get_bitboard_square(6, 7))
+				}
 			}
 		}
 
@@ -132,10 +136,14 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(2, 7)) &&
 		   !piece_exists(board, get_bitboard_square(3, 7)) {
 			king_square := board.black_king
-			if !is_in_check(board, Piece_Color.Black) &&
-			   len(move_possible(board, get_bitboard_square(3, 7), Piece_Color.White)) == 0 &&
-			   len(move_possible(board, get_bitboard_square(2, 7), Piece_Color.White)) == 0 {
-				append(&moves, get_bitboard_square(2, 7))
+			if !is_in_check(board, Piece_Color.Black) {
+				attackers1 := move_possible(board, get_bitboard_square(3, 7), Piece_Color.White)
+				defer delete(attackers1)
+				attackers2 := move_possible(board, get_bitboard_square(2, 7), Piece_Color.White)
+				defer delete(attackers2)
+				if len(attackers1) == 0 && len(attackers2) == 0 {
+					append(&moves, get_bitboard_square(2, 7))
+				}
 			}
 		}
 	} else if color == Piece_Color.White {
@@ -143,10 +151,14 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(6, 0)) &&
 		   !piece_exists(board, get_bitboard_square(5, 0)) {
 			king_square := board.white_king
-			if !is_in_check(board, Piece_Color.White) &&
-			   len(move_possible(board, get_bitboard_square(5, 0), Piece_Color.Black)) == 0 &&
-			   len(move_possible(board, get_bitboard_square(6, 0), Piece_Color.Black)) == 0 {
-				append(&moves, get_bitboard_square(6, 0))
+			if !is_in_check(board, Piece_Color.White) {
+				attackers1 := move_possible(board, get_bitboard_square(5, 0), Piece_Color.Black)
+				defer delete(attackers1)
+				attackers2 := move_possible(board, get_bitboard_square(6, 0), Piece_Color.Black)
+				defer delete(attackers2)
+				if len(attackers1) == 0 && len(attackers2) == 0 {
+					append(&moves, get_bitboard_square(6, 0))
+				}
 			}
 		}
 
@@ -155,10 +167,14 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(2, 0)) &&
 		   !piece_exists(board, get_bitboard_square(3, 0)) {
 			king_square := board.white_king
-			if !is_in_check(board, Piece_Color.White) &&
-			   len(move_possible(board, get_bitboard_square(3, 0), Piece_Color.Black)) == 0 &&
-			   len(move_possible(board, get_bitboard_square(2, 0), Piece_Color.Black)) == 0 {
-				append(&moves, get_bitboard_square(2, 0))
+			if !is_in_check(board, Piece_Color.White) {
+				attackers1 := move_possible(board, get_bitboard_square(3, 0), Piece_Color.Black)
+				defer delete(attackers1)
+				attackers2 := move_possible(board, get_bitboard_square(2, 0), Piece_Color.Black)
+				defer delete(attackers2)
+				if len(attackers1) == 0 && len(attackers2) == 0 {
+					append(&moves, get_bitboard_square(2, 0))
+				}
 			}
 		}
 	}
