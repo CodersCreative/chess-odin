@@ -1,5 +1,6 @@
 package chess
 
+import "base:runtime"
 import "core:fmt"
 import "core:math/bits"
 
@@ -89,8 +90,8 @@ get_bitboard_square :: proc(x: int, y: int) -> u64 {
 }
 
 
-bitboard_to_squares :: proc(bitboard: u64) -> [dynamic]u64 {
-	squares := make([dynamic]u64)
+bitboard_to_squares :: proc(bitboard: u64, allocator: runtime.Allocator) -> [dynamic]u64 {
+	squares := make([dynamic]u64, allocator)
 	bitboard := bitboard
 
 	for bitboard > 0 {
@@ -226,8 +227,7 @@ process_algebraic_move :: proc(
 
 	from: u64 = 0
 
-	candidate_squares := bitboard_to_squares(pieces_bitboard)
-	defer delete(candidate_squares)
+	candidate_squares := bitboard_to_squares(pieces_bitboard, context.temp_allocator)
 
 	for square in candidate_squares {
 		x, y := get_x_y_from_square(square)
@@ -235,8 +235,7 @@ process_algebraic_move :: proc(
 		if details.from_x != 9 && cast(int)details.from_x != x do continue
 		if details.from_y != 9 && cast(int)details.from_y != y do continue
 
-		moves := get_moves(board, square)
-		defer delete(moves)
+		moves := get_moves(board, square, allocator = context.temp_allocator)
 
 		found := false
 		for move in moves {
@@ -512,17 +511,20 @@ force_undo :: proc(board: ^Board, actions: Actions) {
 	board.full_move_clock = actions.full_move_clock
 }
 
-move_possible :: proc(board: ^Board, to: u64, by: Piece_Color) -> [dynamic]u64 {
-	froms := make([dynamic]u64)
-	pieces := get_all_player_pieces(board, by)
+move_possible :: proc(
+	board: ^Board,
+	to: u64,
+	by: Piece_Color,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	froms := make([dynamic]u64, allocator)
+	pieces := get_all_player_pieces(board, by, context.temp_allocator)
 	defer delete(pieces)
 
 	for square in pieces {
 		piece := get_piece(board, square)
-		if get_piece_color(piece) != by do continue
 
-		moves := get_moves(board, square, piece)
-		defer delete(moves)
+		moves := get_moves(board, square, piece, context.temp_allocator)
 
 		for target in moves {
 			if target == to do append(&froms, square)
@@ -572,54 +574,70 @@ get_total_bitboard :: proc(board: ^Board, player: Piece_Color) -> u64 {
 	return bitboard
 }
 
-get_all_player_pieces :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64 {
-	return bitboard_to_squares(get_total_bitboard(board, player))
+get_all_player_pieces :: proc(
+	board: ^Board,
+	player: Piece_Color,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	return bitboard_to_squares(get_total_bitboard(board, player), allocator)
 }
 
 is_in_check :: proc(board: ^Board, player: Piece_Color) -> bool {
 	#partial switch player {
 	case Piece_Color.Black:
-		black_king_squares := bitboard_to_squares(board.black_king)
-		defer delete(black_king_squares)
+		black_king_squares := bitboard_to_squares(board.black_king, context.temp_allocator)
 		if len(black_king_squares) == 0 do return false
-		attackers := move_possible(board, black_king_squares[0], Piece_Color.White)
-		defer delete(attackers)
-		return len(attackers) != 0
+		return(
+			len(
+				move_possible(
+					board,
+					black_king_squares[0],
+					Piece_Color.White,
+					context.temp_allocator,
+				),
+			) !=
+			0 \
+		)
 	case Piece_Color.White:
-		white_king_squares := bitboard_to_squares(board.white_king)
-		defer delete(white_king_squares)
+		white_king_squares := bitboard_to_squares(board.white_king, context.temp_allocator)
 		if len(white_king_squares) == 0 do return false
-		attackers := move_possible(board, white_king_squares[0], Piece_Color.Black)
-		defer delete(attackers)
-		return len(attackers) != 0
+		return(
+			len(
+				move_possible(
+					board,
+					white_king_squares[0],
+					Piece_Color.Black,
+					context.temp_allocator,
+				),
+			) !=
+			0 \
+		)
 	}
 
 	return false
 }
 
-get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64 {
-	valid_moves: [dynamic]u64
+get_valid_king_moves :: proc(
+	board: ^Board,
+	player: Piece_Color,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	valid_moves := make([dynamic]u64, allocator)
 
 	#partial switch player {
 	case Piece_Color.Black:
 		if board.black_king == 0 do return valid_moves
-		moves := get_moves(board, board.black_king, Piece.Black_King)
-		defer delete(moves)
+		moves := get_moves(board, board.black_king, Piece.Black_King, context.temp_allocator)
 
 		for move in moves {
-			attackers := move_possible(board, move, Piece_Color.White)
-			defer delete(attackers)
-			if len(attackers) == 0 do append(&valid_moves, move)
+			if len(move_possible(board, move, Piece_Color.White, context.temp_allocator)) == 0 do append(&valid_moves, move)
 		}
 	case Piece_Color.White:
 		if board.white_king == 0 do return valid_moves
-		moves := get_moves(board, board.white_king, Piece.White_King)
-		defer delete(moves)
+		moves := get_moves(board, board.white_king, Piece.White_King, context.temp_allocator)
 
 		for move in moves {
-			attackers := move_possible(board, move, Piece_Color.Black)
-			defer delete(attackers)
-			if len(attackers) == 0 do append(&valid_moves, move)
+			if len(move_possible(board, move, Piece_Color.Black, context.temp_allocator)) == 0 do append(&valid_moves, move)
 		}
 	}
 
@@ -627,33 +645,34 @@ get_valid_king_moves :: proc(board: ^Board, player: Piece_Color) -> [dynamic]u64
 }
 
 is_move_legal :: proc(board: ^Board, from: u64, to: u64, player: Piece_Color) -> bool {
-	actions := force_move(board, Move{from = from, to = to, capturing = get_value(get_piece(board, to))})
-	
+	actions := force_move(
+		board,
+		Move{from = from, to = to, capturing = get_value(get_piece(board, to))},
+	)
+
 	in_check := is_in_check(board, player)
-	
+
 	force_undo(board, actions)
-	
+
 	return !in_check
 }
 
 is_checkmate :: proc(board: ^Board, player: Piece_Color) -> bool {
 	if !is_in_check(board, player) do return false
-	
-	pieces := get_all_player_pieces(board, player)
-	defer delete(pieces)
-	
+
+	pieces := get_all_player_pieces(board, player, context.temp_allocator)
+
 	for square in pieces {
 		piece := get_piece(board, square)
 		if get_piece_color(piece) != player do continue
-		
-		moves := get_moves(board, square, piece)
-		defer delete(moves)
-		
+
+		moves := get_moves(board, square, piece, context.temp_allocator)
+
 		for move in moves {
 			if is_move_legal(board, square, move, player) do return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -666,19 +685,22 @@ check_win :: proc(board: ^Board) -> (Piece_Color, bool) {
 }
 
 
-get_all_moves_possible :: proc(board: ^Board, player: Piece_Color) -> [dynamic]Move {
+get_all_moves_possible :: proc(
+	board: ^Board,
+	player: Piece_Color,
+	allocator: runtime.Allocator,
+) -> [dynamic]Move {
 	if is_checkmate(board, invert_color(player)) do return make([dynamic]Move)
 
-	moves: [dynamic]Move
+	moves := make([dynamic]Move, allocator)
 
-	pieces := get_all_player_pieces(board, player)
-	defer delete(pieces)
+	pieces := get_all_player_pieces(board, player, context.temp_allocator)
+
 	for square in pieces {
 		piece := get_piece(board, square)
 		if get_piece_color(piece) != player do continue
 
-		cur_moves := get_moves(board, square, piece)
-		defer delete(cur_moves)
+		cur_moves := get_moves(board, square, piece, context.temp_allocator)
 
 		for pos in cur_moves {
 			if is_move_legal(board, square, pos, player) {

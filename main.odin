@@ -82,7 +82,7 @@ handle_move_notation_input :: proc(
 		position := get_square_from_notation(str_move[0], str_move[1])
 		ones := bits.count_ones(position)
 		if ones != 1 do return handle_move_notation_input(board, buffer, player, err)
-		moves := get_moves(board, position)
+		moves := get_moves(board, position, allocator = context.temp_allocator)
 		defer delete(moves)
 		bitboard := get_moves_bitboard(moves[:])
 		if bitboard == 0 do fmt.printfln("No Targets available for position %s", str_move)
@@ -107,8 +107,7 @@ process_move :: proc(board: ^Board, str_move: string) -> (Move, string) {
 	if !is_valid_notation(str_move) do return Move{}, "Move is in an incorrect format"
 
 	move := get_move_from_notation(str_move)
-	available_targets := get_moves(board, move.from)
-	defer delete(available_targets)
+	available_targets := get_moves(board, move.from, allocator = context.temp_allocator)
 
 	for target in available_targets {
 		if target == move.to {

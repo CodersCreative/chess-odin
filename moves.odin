@@ -1,5 +1,6 @@
 package chess
 
+import "base:runtime"
 Move :: struct {
 	from:      u64,
 	to:        u64,
@@ -7,8 +8,13 @@ Move :: struct {
 	promotion: General_Piece,
 }
 
-get_pawn_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
-	moves: [dynamic]u64
+get_pawn_moves :: proc(
+	board: ^Board,
+	square: u64,
+	piece: Piece,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	moves := make([dynamic]u64, allocator)
 	x, y := get_x_y_from_square(square)
 	color := get_piece_color(piece)
 
@@ -57,8 +63,13 @@ add_move :: proc(board: ^Board, moves: ^[dynamic]u64, x, y: int, color: Piece_Co
 }
 
 
-get_rook_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
-	moves: [dynamic]u64
+get_rook_moves :: proc(
+	board: ^Board,
+	square: u64,
+	piece: Piece,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	moves := make([dynamic]u64, allocator)
 	x, y := get_x_y_from_square(square)
 	color := get_piece_color(piece)
 
@@ -81,8 +92,13 @@ get_rook_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 	return moves
 }
 
-get_bishop_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
-	moves: [dynamic]u64
+get_bishop_moves :: proc(
+	board: ^Board,
+	square: u64,
+	piece: Piece,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	moves := make([dynamic]u64, allocator)
 	x, y := get_x_y_from_square(square)
 	color := get_piece_color(piece)
 
@@ -101,8 +117,13 @@ get_bishop_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u
 	return moves
 }
 
-get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
-	moves: [dynamic]u64
+get_king_moves :: proc(
+	board: ^Board,
+	square: u64,
+	piece: Piece,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	moves := make([dynamic]u64, allocator)
 	x, y := get_x_y_from_square(square)
 	color := get_piece_color(piece)
 
@@ -121,10 +142,18 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(5, 7)) {
 			king_square := board.black_king
 			if !is_in_check(board, Piece_Color.Black) {
-				attackers1 := move_possible(board, get_bitboard_square(5, 7), Piece_Color.White)
-				defer delete(attackers1)
-				attackers2 := move_possible(board, get_bitboard_square(6, 7), Piece_Color.White)
-				defer delete(attackers2)
+				attackers1 := move_possible(
+					board,
+					get_bitboard_square(5, 7),
+					Piece_Color.White,
+					context.temp_allocator,
+				)
+				attackers2 := move_possible(
+					board,
+					get_bitboard_square(6, 7),
+					Piece_Color.White,
+					context.temp_allocator,
+				)
 				if len(attackers1) == 0 && len(attackers2) == 0 {
 					append(&moves, get_bitboard_square(6, 7))
 				}
@@ -137,10 +166,18 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(3, 7)) {
 			king_square := board.black_king
 			if !is_in_check(board, Piece_Color.Black) {
-				attackers1 := move_possible(board, get_bitboard_square(3, 7), Piece_Color.White)
-				defer delete(attackers1)
-				attackers2 := move_possible(board, get_bitboard_square(2, 7), Piece_Color.White)
-				defer delete(attackers2)
+				attackers1 := move_possible(
+					board,
+					get_bitboard_square(3, 7),
+					Piece_Color.White,
+					context.temp_allocator,
+				)
+				attackers2 := move_possible(
+					board,
+					get_bitboard_square(2, 7),
+					Piece_Color.White,
+					context.temp_allocator,
+				)
 				if len(attackers1) == 0 && len(attackers2) == 0 {
 					append(&moves, get_bitboard_square(2, 7))
 				}
@@ -152,9 +189,19 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(5, 0)) {
 			king_square := board.white_king
 			if !is_in_check(board, Piece_Color.White) {
-				attackers1 := move_possible(board, get_bitboard_square(5, 0), Piece_Color.Black)
+				attackers1 := move_possible(
+					board,
+					get_bitboard_square(5, 0),
+					Piece_Color.Black,
+					context.temp_allocator,
+				)
 				defer delete(attackers1)
-				attackers2 := move_possible(board, get_bitboard_square(6, 0), Piece_Color.Black)
+				attackers2 := move_possible(
+					board,
+					get_bitboard_square(6, 0),
+					Piece_Color.Black,
+					context.temp_allocator,
+				)
 				defer delete(attackers2)
 				if len(attackers1) == 0 && len(attackers2) == 0 {
 					append(&moves, get_bitboard_square(6, 0))
@@ -168,9 +215,19 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 		   !piece_exists(board, get_bitboard_square(3, 0)) {
 			king_square := board.white_king
 			if !is_in_check(board, Piece_Color.White) {
-				attackers1 := move_possible(board, get_bitboard_square(3, 0), Piece_Color.Black)
+				attackers1 := move_possible(
+					board,
+					get_bitboard_square(3, 0),
+					Piece_Color.Black,
+					context.temp_allocator,
+				)
 				defer delete(attackers1)
-				attackers2 := move_possible(board, get_bitboard_square(2, 0), Piece_Color.Black)
+				attackers2 := move_possible(
+					board,
+					get_bitboard_square(2, 0),
+					Piece_Color.Black,
+					context.temp_allocator,
+				)
 				defer delete(attackers2)
 				if len(attackers1) == 0 && len(attackers2) == 0 {
 					append(&moves, get_bitboard_square(2, 0))
@@ -182,8 +239,13 @@ get_king_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64
 	return moves
 }
 
-get_knight_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
-	moves: [dynamic]u64
+get_knight_moves :: proc(
+	board: ^Board,
+	square: u64,
+	piece: Piece,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	moves := make([dynamic]u64, allocator)
 	x, y := get_x_y_from_square(square)
 	color := get_piece_color(piece)
 
@@ -199,34 +261,44 @@ get_knight_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u
 	return moves
 }
 
-get_queen_moves :: proc(board: ^Board, square: u64, piece: Piece) -> [dynamic]u64 {
-	moves := get_rook_moves(board, square, piece)
-	append(&moves, ..get_bishop_moves(board, square, piece)[:])
+get_queen_moves :: proc(
+	board: ^Board,
+	square: u64,
+	piece: Piece,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
+	moves := get_rook_moves(board, square, piece, allocator)
+	append(&moves, ..get_bishop_moves(board, square, piece, context.temp_allocator)[:])
 	return moves
 }
 
-get_moves :: proc(board: ^Board, square: u64, piece: Piece = Piece.None) -> [dynamic]u64 {
+get_moves :: proc(
+	board: ^Board,
+	square: u64,
+	piece: Piece = Piece.None,
+	allocator: runtime.Allocator,
+) -> [dynamic]u64 {
 	piece := piece
 	if piece == Piece.None do piece = get_piece(board, square)
 
 	#partial switch piece {
 	case Piece.White_Pawn, Piece.Black_Pawn:
-		return get_pawn_moves(board, square, piece)
+		return get_pawn_moves(board, square, piece, allocator)
 	case Piece.White_Rook, Piece.Black_Rook:
-		return get_rook_moves(board, square, piece)
+		return get_rook_moves(board, square, piece, allocator)
 	case Piece.White_Bishop, Piece.Black_Bishop:
-		return get_bishop_moves(board, square, piece)
+		return get_bishop_moves(board, square, piece, allocator)
 	case Piece.White_Queen, Piece.Black_Queen:
-		return get_queen_moves(board, square, piece)
+		return get_queen_moves(board, square, piece, allocator)
 	case Piece.White_King, Piece.Black_King:
-		return get_king_moves(board, square, piece)
+		return get_king_moves(board, square, piece, allocator)
 	case Piece.White_Knight, Piece.Black_Knight:
-		return get_knight_moves(board, square, piece)
+		return get_knight_moves(board, square, piece, allocator)
 	case:
-		return make([dynamic]u64)
+		return make([dynamic]u64, allocator)
 	}
 
-	return make([dynamic]u64)
+	return make([dynamic]u64, allocator)
 }
 
 

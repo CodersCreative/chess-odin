@@ -14,8 +14,7 @@ KING_VALUE :: 1800
 
 get_piece_score_with_positional :: proc(board: ^Board, bitboard: u64, piece: Piece) -> i64 {
 	score: i64 = 0
-	squares := bitboard_to_squares(bitboard)
-	defer delete(squares)
+	squares := bitboard_to_squares(bitboard, context.temp_allocator)
 
 	for square in squares {
 		score += cast(i64)get_positional_score(piece, square, board.full_move_clock)
@@ -87,8 +86,7 @@ TRANSPOSITION_TABLE: map[u64]Cache_Entry
 
 start_negamax :: proc(board: ^Board, max_depth: u8, player: Piece_Color) -> Move {
 	best_move := Move{}
-	available_moves := get_all_moves_possible(board, player)
-	defer delete(available_moves)
+	available_moves := get_all_moves_possible(board, player, context.temp_allocator)
 
 	if len(available_moves) == 0 do return Move{}
 
@@ -199,8 +197,7 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 	}
 
 	alpha := alpha
-	available_moves := get_all_moves_possible(board, player)
-	defer delete(available_moves)
+	available_moves := get_all_moves_possible(board, player, context.temp_allocator)
 
 	if len(available_moves) == 0 do return 0
 
@@ -246,8 +243,7 @@ quiescence :: proc(board: ^Board, player: Piece_Color, alpha: i64, beta: i64) ->
 	if baseline >= beta do return beta
 	if baseline > alpha do alpha = baseline
 
-	available_moves := get_all_moves_possible(board, player)
-	defer delete(available_moves)
+	available_moves := get_all_moves_possible(board, player, context.temp_allocator)
 
 	left := 0
 	for right := 0; right < len(available_moves); right += 1 {
