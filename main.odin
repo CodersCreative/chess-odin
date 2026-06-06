@@ -3,8 +3,14 @@ package chess
 import "core:fmt"
 import "core:math/bits"
 import "core:os"
+import "core:prof/spall"
 import "core:strings"
+import "core:sync"
 import "core:time"
+
+spall_ctx: spall.Context
+@(thread_local)
+spall_buffer: spall.Buffer
 
 
 is_valid_notation :: proc(move: string) -> bool {
@@ -185,7 +191,7 @@ handle_pgn :: proc(board: ^Board, player: ^Piece_Color, buffer: []byte) {
 	time.sleep(1 * time.Second)
 }
 
-MINIMAX_DEPTH :: 4
+MINIMAX_DEPTH :: 3
 AI_MOVE_DURATION_SEC :: 1.0
 
 HistoryMove :: struct {
@@ -283,6 +289,17 @@ uci_loop :: proc() {
 }
 
 main :: proc() {
+	spall_ctx = spall.context_create("chess.spall")
+	defer spall.context_destroy(&spall_ctx)
+
+	buffer_backing := make([]u8, spall.BUFFER_DEFAULT_SIZE)
+	defer delete(buffer_backing)
+
+	spall_buffer = spall.buffer_create(buffer_backing, u32(sync.current_thread_id()))
+	defer spall.buffer_destroy(&spall_ctx, &spall_buffer)
+
+	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
 	args := os.args
 
 	if len(args) > 1 {

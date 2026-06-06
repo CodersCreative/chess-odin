@@ -1,8 +1,6 @@
 package chess
-import "core:container/avl"
-import "core:fmt"
 import "core:math/bits"
-import "core:slice"
+import "core:prof/spall"
 import "core:time"
 
 PAWN_VALUE :: 100
@@ -84,25 +82,32 @@ Cache_Entry :: struct {
 
 TRANSPOSITION_TABLE: map[u64]Cache_Entry
 
+capture_sort_moves :: proc(moves: ^[dynamic]Move) -> int {
+	left := 0
+	for right := 0; right < len(moves); right += 1 {
+		if moves[right].capturing > moves[left].capturing {
+			moves[left], moves[right] = moves[right], moves[left]
+			left += 1
+		}
+	}
+
+	return left
+}
+
 start_negamax :: proc(board: ^Board, max_depth: u8, player: Piece_Color) -> Move {
+	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
 	best_move := Move{}
 	available_moves := get_all_moves_possible(board, player, context.temp_allocator)
 
 	if len(available_moves) == 0 do return Move{}
 
-	left := 0
-	for right := 0; right < len(available_moves); right += 1 {
-		if available_moves[right].capturing > available_moves[left].capturing {
-			available_moves[left], available_moves[right] =
-				available_moves[right], available_moves[left]
-			left += 1
-		}
-	}
+	capture_sort_moves(&available_moves)
 
 	start := time.tick_now()
 
 	for current_depth: u8 = 1; current_depth <= max_depth; current_depth += 1 {
-		move := initial_negamax(
+		initial_negamax(
 			board,
 			current_depth,
 			player,
@@ -111,18 +116,12 @@ start_negamax :: proc(board: ^Board, max_depth: u8, player: Piece_Color) -> Move
 			&available_moves,
 		)
 
-		if move != (Move{}) {
-			best_move = move
-		}
-
 		if time.tick_diff(start, time.tick_now()) >= AI_MOVE_DURATION_SEC * time.Second {
-			fmt.println(current_depth)
-			time.sleep(time.Second)
 			break
 		}
 	}
 
-	return best_move
+	return (len(available_moves) > 0) ? available_moves[0] : Move{}
 }
 
 initial_negamax :: proc(
@@ -132,12 +131,13 @@ initial_negamax :: proc(
 	alpha: i64,
 	beta: i64,
 	available_moves: ^[dynamic]Move,
-) -> Move {
+) {
+	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
 	player := player
 	inverted_player := invert_color(player)
 
 	best_score: i64 = bits.I64_MIN
-	best_move := available_moves[0]
 	alpha := alpha
 
 	scores := make([dynamic]i64, 0, len(available_moves), context.allocator)
@@ -156,31 +156,27 @@ initial_negamax :: proc(
 
 		if score > best_score {
 			best_score = score
-			best_move = move
 		}
 
 		alpha = max(alpha, best_score)
 		if alpha >= beta do break
-		if i > 0 {
-			for x := i - 1; x >= 0; x -= 1 {
-				if scores[x] < scores[x + 1] {
-					available_moves[x], available_moves[x + 1] =
-						available_moves[x + 1], available_moves[x]
-				}
-			}
-		}
-
 	}
 
-	return best_move
+	for i := 1; i < len(available_moves); i += 1 {
+		for j := i; j > 0 && scores[j] > scores[j - 1]; j -= 1 {
+			available_moves[j], available_moves[j - 1] = available_moves[j - 1], available_moves[j]
+			scores[j], scores[j - 1] = scores[j - 1], scores[j]
+		}
+	}
 }
 
-negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta: i64) -> i64 {
-	player := player
-	zobrist_key := get_zobrist(board, &player)
-	if entry, exists := TRANSPOSITION_TABLE[zobrist_key]; exists && entry.depth >= depth {
-		return entry.score
-	}
+evaluate_score :: proc(
+	board: ^Board,
+	depth: u8,
+	player: Piece_Color,
+	alpha: i64,
+	beta: i64,
+) -> i64 {
 
 	win, stalemate := check_win(board)
 	inverted_player := invert_color(player)
@@ -191,8 +187,25 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 		return -1800 + cast(i64)depth - get_score(board, inverted_player)
 	} else if stalemate {
 		return get_score(board, player) - get_score(board, inverted_player)
-	} else if depth <= 0 {
-		score := quiescence(board, player, alpha, beta)
+	} else {
+		return 0
+	}
+}
+
+negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta: i64) -> i64 {
+	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
+	player := player
+	zobrist_key := get_zobrist(board, &player)
+	if entry, exists := TRANSPOSITION_TABLE[zobrist_key]; exists && entry.depth >= depth {
+		return entry.score
+	}
+
+	score := evaluate_score(board, depth, player, alpha, beta)
+	if score != 0 do return score
+
+	if depth <= 0 {
+		score := quiescence(board, player, alpha, beta, 4)
 		return score
 	}
 
@@ -201,14 +214,7 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 
 	if len(available_moves) == 0 do return 0
 
-	left := 0
-	for right := 0; right < len(available_moves); right += 1 {
-		if available_moves[right].capturing > available_moves[left].capturing {
-			available_moves[left], available_moves[right] =
-				available_moves[right], available_moves[left]
-			left += 1
-		}
-	}
+	capture_sort_moves(&available_moves)
 
 	best_score: i64 = bits.I64_MIN
 	best_move := available_moves[0]
@@ -216,7 +222,7 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 	for move in available_moves {
 		actions := force_move(board, move)
 
-		score := -negamax(board, depth - 1, inverted_player, -beta, -alpha)
+		score := -negamax(board, depth - 1, invert_color(player), -beta, -alpha)
 
 		force_undo(board, actions)
 		delete(actions.actions)
@@ -235,30 +241,38 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 	return best_score
 }
 
-quiescence :: proc(board: ^Board, player: Piece_Color, alpha: i64, beta: i64) -> i64 {
+quiescence :: proc(
+	board: ^Board,
+	player: Piece_Color,
+	alpha: i64,
+	beta: i64,
+	depth: u8 = 4,
+) -> i64 {
+	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
 	inverted_player := invert_color(player)
 	baseline := get_score(board, player) - get_score(board, inverted_player)
 	alpha := alpha
+
+	score := evaluate_score(board, depth, player, alpha, beta)
+	if score != 0 do return score
 
 	if baseline >= beta do return beta
 	if baseline > alpha do alpha = baseline
 
 	available_moves := get_all_moves_possible(board, player, context.temp_allocator)
 
-	left := 0
-	for right := 0; right < len(available_moves); right += 1 {
-		if available_moves[right].capturing > available_moves[left].capturing {
-			available_moves[left], available_moves[right] =
-				available_moves[right], available_moves[left]
-			left += 1
-		}
-	}
+	left := capture_sort_moves(&available_moves)
 
 	for i := 0; i < left; i += 1 {
 		move := available_moves[i]
+
+		capture_value := cast(i64)move.capturing
+		if baseline + capture_value + 100 < alpha do continue
+
 		actions := force_move(board, move)
 
-		score := -quiescence(board, inverted_player, -beta, -alpha)
+		score := -quiescence(board, inverted_player, -beta, -alpha, depth - 1)
 
 		force_undo(board, actions)
 		delete(actions.actions)
