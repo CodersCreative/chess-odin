@@ -82,6 +82,11 @@ Cache_Entry :: struct {
 
 TRANSPOSITION_TABLE: map[u64]Cache_Entry
 
+Search_Context :: struct {
+	stop_check:   proc() -> bool,
+	node_counter: ^i64,
+}
+
 capture_sort_moves :: proc(moves: ^[dynamic]Move) -> int {
 	left := 0
 	for right := 0; right < len(moves); right += 1 {
@@ -94,7 +99,12 @@ capture_sort_moves :: proc(moves: ^[dynamic]Move) -> int {
 	return left
 }
 
-start_negamax :: proc(board: ^Board, max_depth: u8, player: Piece_Color) -> Move {
+start_negamax :: proc(
+	board: ^Board,
+	max_depth: u8,
+	player: Piece_Color,
+	ctx: ^Search_Context = nil,
+) -> Move {
 	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
 
 	best_move := Move{}
@@ -114,6 +124,7 @@ start_negamax :: proc(board: ^Board, max_depth: u8, player: Piece_Color) -> Move
 			bits.I64_MIN + 1,
 			bits.I64_MAX - 1,
 			&available_moves,
+			ctx,
 		)
 
 		if time.tick_diff(start, time.tick_now()) >= AI_MOVE_DURATION_SEC * time.Second {
@@ -131,6 +142,7 @@ initial_negamax :: proc(
 	alpha: i64,
 	beta: i64,
 	available_moves: ^[dynamic]Move,
+	ctx: ^Search_Context = nil,
 ) {
 	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
 
@@ -144,10 +156,12 @@ initial_negamax :: proc(
 	defer delete(scores)
 
 	for i := 0; i < len(available_moves); i += 1 {
+		if ctx != nil && ctx.stop_check != nil && ctx.stop_check() do break
+
 		move := available_moves[i]
 		actions := force_move(board, move)
 
-		score := negamax(board, depth - 1, inverted_player, -beta, -alpha)
+		score := negamax(board, depth - 1, inverted_player, -beta, -alpha, ctx)
 		score = -score
 		append(&scores, score)
 
@@ -162,7 +176,7 @@ initial_negamax :: proc(
 		if alpha >= beta do break
 	}
 
-	for i := 1; i < len(available_moves); i += 1 {
+	for i := 1; i < len(available_moves) && i < len(scores); i += 1 {
 		for j := i; j > 0 && scores[j] > scores[j - 1]; j -= 1 {
 			available_moves[j], available_moves[j - 1] = available_moves[j - 1], available_moves[j]
 			scores[j], scores[j - 1] = scores[j - 1], scores[j]
@@ -192,8 +206,17 @@ evaluate_score :: proc(
 	}
 }
 
-negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta: i64) -> i64 {
+negamax :: proc(
+	board: ^Board,
+	depth: u8,
+	player: Piece_Color,
+	alpha: i64,
+	beta: i64,
+	ctx: ^Search_Context = nil,
+) -> i64 {
 	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
+	if ctx != nil && ctx.stop_check != nil && ctx.stop_check() do return 0
 
 	player := player
 	zobrist_key := get_zobrist(board, &player)
@@ -205,7 +228,7 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 	if score != 0 do return score
 
 	if depth <= 0 {
-		score := quiescence(board, player, alpha, beta, 4)
+		score := quiescence(board, player, alpha, beta, 4, ctx)
 		return score
 	}
 
@@ -220,9 +243,15 @@ negamax :: proc(board: ^Board, depth: u8, player: Piece_Color, alpha: i64, beta:
 	best_move := available_moves[0]
 
 	for move in available_moves {
+		if ctx != nil && ctx.stop_check != nil && ctx.stop_check() do break
+
 		actions := force_move(board, move)
 
-		score := -negamax(board, depth - 1, invert_color(player), -beta, -alpha)
+		if ctx != nil && ctx.node_counter != nil {
+			ctx.node_counter^ += 1
+		}
+
+		score := -negamax(board, depth - 1, invert_color(player), -beta, -alpha, ctx)
 
 		force_undo(board, actions)
 		delete(actions.actions)
@@ -247,8 +276,11 @@ quiescence :: proc(
 	alpha: i64,
 	beta: i64,
 	depth: u8 = 4,
+	ctx: ^Search_Context = nil,
 ) -> i64 {
 	spall.SCOPED_EVENT(&spall_ctx, &spall_buffer, #procedure)
+
+	if ctx != nil && ctx.stop_check != nil && ctx.stop_check() do return 0
 
 	inverted_player := invert_color(player)
 	baseline := get_score(board, player) - get_score(board, inverted_player)
@@ -265,6 +297,8 @@ quiescence :: proc(
 	left := capture_sort_moves(&available_moves)
 
 	for i := 0; i < left; i += 1 {
+		if ctx != nil && ctx.stop_check != nil && ctx.stop_check() do break
+
 		move := available_moves[i]
 
 		capture_value := cast(i64)move.capturing
@@ -272,7 +306,11 @@ quiescence :: proc(
 
 		actions := force_move(board, move)
 
-		score := -quiescence(board, inverted_player, -beta, -alpha, depth - 1)
+		if ctx != nil && ctx.node_counter != nil {
+			ctx.node_counter^ += 1
+		}
+
+		score := -quiescence(board, inverted_player, -beta, -alpha, depth - 1, ctx)
 
 		force_undo(board, actions)
 		delete(actions.actions)

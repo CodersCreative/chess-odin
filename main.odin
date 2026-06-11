@@ -13,27 +13,27 @@ spall_ctx: spall.Context
 spall_buffer: spall.Buffer
 
 
-is_valid_notation :: proc(move: string) -> bool {
+is_valid_notation :: proc(move: string) -> string {
 	move := strings.trim_space(move)
 
 	for i in 0 ..< 5 {
 		c := move[i]
-		if (i == 0 || i == 3) && (c < 97 || c > 104) do return false
-		else if (i == 1 || i == 4) && (c < 49 || c > 56) do return false
+		if (i == 0 || i == 3 || i == 2) && (c < 97 || c > 104) do return "letter"
+		else if (i == 1 || i == 4 || i == 3) && (c < 49 || c > 56) do return "number"
 	}
 
-	return true
+	return (len(move) < 5) ? "alt" : ""
 }
 
 get_square_from_notation :: proc(letter: u8, number: u8) -> u64 {
 	return get_bitboard_square(cast(int)letter - 97, (cast(int)number - 49))
 }
 
-get_move_from_notation :: proc(move: string) -> Move {
+get_move_from_notation :: proc(move: string, with_space: bool = true) -> Move {
 	move := strings.trim_space(move)
 	return Move {
 		from = get_square_from_notation(move[0], move[1]),
-		to = get_square_from_notation(move[3], move[4]),
+		to = with_space ? get_square_from_notation(move[3], move[4]) : get_square_from_notation(move[2], move[3]),
 	}
 }
 
@@ -110,9 +110,10 @@ handle_move_notation_input :: proc(
 }
 
 process_move :: proc(board: ^Board, str_move: string) -> (Move, string) {
-	if !is_valid_notation(str_move) do return Move{}, "Move is in an incorrect format"
+	valid := is_valid_notation(str_move)
+	if valid != "" || valid != "alt" do return Move{}, "Move is in an incorrect format"
 
-	move := get_move_from_notation(str_move)
+	move := get_move_from_notation(str_move, valid != "alt")
 	available_targets := get_moves(board, move.from, allocator = context.temp_allocator)
 
 	for target in available_targets {
@@ -281,11 +282,6 @@ game_loop :: proc() {
 		inner_game_loop()
 		time.sleep(3 * time.Second)
 	}
-}
-
-uci_loop :: proc() {
-	// TODO Add UCI functionality
-	game_loop()
 }
 
 main :: proc() {
